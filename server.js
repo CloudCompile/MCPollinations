@@ -41,6 +41,22 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Bearer token auth — set HF_TOKEN env var to restrict access
+  const hfToken = process.env.HF_TOKEN;
+  if (hfToken) {
+    const authHeader = req.headers['authorization'] || '';
+    const provided = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (provided !== hfToken) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32001, message: 'Unauthorized' },
+        id: null
+      }));
+      return;
+    }
+  }
+
   if (!['GET', 'POST', 'DELETE'].includes(req.method || '')) {
     res.writeHead(405, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
