@@ -88,12 +88,24 @@ export async function getSimpleText(prompt, query = {}, authConfig = null) {
   });
 }
 
-export async function postSimpleText(prompt, model = 'openai', authConfig = null) {
-  if (!prompt || typeof prompt !== 'string') {
-    throw new Error('prompt is required and must be a string');
+export async function postSimpleText(prompt, model = 'openai', authConfig = null, messages = null) {
+  if (messages !== null && messages !== undefined && !Array.isArray(messages)) {
+    throw new Error('messages must be an array when provided');
   }
 
-  const payload = { prompt, model };
+  if ((!messages || messages.length === 0) && (!prompt || typeof prompt !== 'string')) {
+    throw new Error('prompt is required and must be a string when messages is not provided');
+  }
+
+  const normalizedMessages = Array.isArray(messages) && messages.length > 0
+    ? messages
+    : [{ role: 'user', content: prompt }];
+
+  if (!Array.isArray(normalizedMessages) || normalizedMessages.length === 0) {
+    throw new Error('Either prompt or messages is required');
+  }
+
+  const payload = { model, messages: normalizedMessages };
   return await requestPollinations(`${POLLINATIONS_BASE_URL}/text`, {
     method: 'POST',
     headers: createHeaders(authConfig, { requireAuth: true, json: true }),

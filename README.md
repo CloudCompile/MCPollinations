@@ -245,7 +245,7 @@ The MCP server provides the following tools:
 
 ### **Extended Pollinations Endpoint Tools**
 10. `getSimpleText` - GET `/text/{prompt}` plain-text generation
-11. `postSimpleText` - POST `/text` plain-text generation
+11. `postSimpleText` - POST `/text` plain-text generation (supports either `prompt` or `messages`)
 12. `getSimpleImageUrl` - GET `/image/{prompt}` direct image URL
 13. `getSimpleVideoUrl` - GET `/video/{prompt}` direct video URL
 14. `getSimpleAudioUrl` - GET `/audio/{text}` direct audio URL

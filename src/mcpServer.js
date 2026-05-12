@@ -362,8 +362,8 @@ export function createPollinationsServer() {
 
     } else if (name === 'postSimpleText') {
       try {
-        const { prompt, model = defaultConfig.text.model } = args;
-        const result = await postSimpleText(prompt, model, finalAuthConfig);
+        const { prompt, messages, model = defaultConfig.text.model } = args;
+        const result = await postSimpleText(prompt, model, finalAuthConfig, messages);
         return { content: [{ type: 'text', text: result }] };
       } catch (error) {
         return {

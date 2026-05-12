@@ -17,14 +17,29 @@ export const getSimpleTextSchema = {
 
 export const postSimpleTextSchema = {
   name: 'postSimpleText',
-  description: 'POST /text - generate plain text with JSON payload',
+  description: 'POST /text - generate plain text with JSON payload (prompt or messages)',
   inputSchema: {
     type: 'object',
     properties: {
-      prompt: { type: 'string', description: 'Text prompt' },
+      prompt: { type: 'string', description: 'Text prompt (used when messages is not provided)' },
+      messages: {
+        type: 'array',
+        description: 'Chat messages array for /text payload',
+        items: {
+          type: 'object',
+          properties: {
+            role: { type: 'string', enum: ['system', 'user', 'assistant'] },
+            content: { type: 'string' }
+          },
+          required: ['role', 'content']
+        }
+      },
       model: { type: 'string', description: 'Model ID', default: 'openai' }
     },
-    required: ['prompt']
+    anyOf: [
+      { required: ['prompt'] },
+      { required: ['messages'] }
+    ]
   }
 };
 
