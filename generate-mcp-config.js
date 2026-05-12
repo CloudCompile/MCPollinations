@@ -75,6 +75,7 @@ async function generateMcpConfig() {
   while (!config[configKey].env.token || !config[configKey].env.token.trim()) {
     console.log('\nAuthentication Configuration:');
     console.log('Pollinations now uses the auth-only endpoint at https://gen.pollinations.ai/v1');
+    console.log('Get your API key at: https://enter.pollinations.ai');
     const authToken = await prompt('API Token (required): ');
     const normalizedToken = (authToken || '').trim();
     if (['exit', 'quit'].includes(normalizedToken.toLowerCase())) {

@@ -111,6 +111,13 @@ export async function generateImage(prompt, model = 'flux', seed = Math.floor(Ma
     throw new Error('Prompt is required and must be a string');
   }
 
+  const validFormats = ['png', 'jpeg', 'jpg', 'webp'];
+  const hasValidFormat = validFormats.includes(format);
+  if (!hasValidFormat) {
+    warn(`Invalid format '${format}', defaulting to 'png'`);
+  }
+  const extension = hasValidFormat ? format : 'png';
+
   try {
     const payload = {
       model,
@@ -140,13 +147,6 @@ export async function generateImage(prompt, model = 'flux', seed = Math.floor(Ma
     if (!base64Data && !returnedImageUrl) {
       throw new Error('Image generation succeeded but no image data was returned by Pollinations.');
     }
-
-    const validFormats = ['png', 'jpeg', 'jpg', 'webp'];
-    const hasValidFormat = validFormats.includes(format);
-    if (!hasValidFormat) {
-      warn(`Invalid format '${format}', defaulting to 'png'`);
-    }
-    const extension = hasValidFormat ? format : 'png';
 
     let finalBase64Data = base64Data;
     let contentType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;

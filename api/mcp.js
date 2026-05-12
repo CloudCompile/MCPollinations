@@ -5,6 +5,8 @@ const DEBUG = /^(1|true|yes)$/i.test(process.env.DEBUG || process.env.MCP_DEBUG 
 const log = (...args) => { if (DEBUG) { try { console.error(...args); } catch {} } };
 
 async function getParsedBody(req) {
+  // Vercel may provide req.body pre-parsed for JSON requests; if not,
+  // manually read and parse the raw request stream for POST requests.
   if (req.body !== undefined) {
     return req.body;
   }

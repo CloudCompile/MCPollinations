@@ -153,7 +153,7 @@ export async function transcribeAudioFromUrl(audioUrl, model = 'whisper', authCo
 
   const sourceResponse = await fetch(audioUrl);
   if (!sourceResponse.ok) {
-    throw new Error(`Failed to fetch source audio (${sourceResponse.status}): ${sourceResponse.statusText}`);
+    throw new Error(`Failed to fetch source audio (${sourceResponse.status}) from ${audioUrl}: ${sourceResponse.statusText}`);
   }
 
   const contentType = sourceResponse.headers.get('content-type') || 'audio/mpeg';
