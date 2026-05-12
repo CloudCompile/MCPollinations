@@ -6,6 +6,7 @@
 
 // Import services
 import { generateImageUrl, generateImage, editImage, generateImageFromReference, listImageModels } from './services/imageService.js';
+import { createSandbox, runCode, installPackage, readFile, writeFile, killSandbox } from './services/e2bService.js';
 import { respondAudio, listAudioVoices } from './services/audioService.js';
 import { respondText, listTextModels } from './services/textService.js';
 import {
@@ -57,7 +58,15 @@ export {
   createAccountKey,
   deleteAccountKey,
   openAiCompatiblePost,
-  openAiCompatibleGet
+  openAiCompatibleGet,
+
+  // E2B services
+  createSandbox,
+  runCode,
+  installPackage,
+  readFile,
+  writeFile,
+  killSandbox
 };
 
 // If this file is run directly (e.g., with Node.js)

@@ -3,6 +3,7 @@
  */
 
 import { generateImageUrlSchema, generateImageSchema, editImageSchema, generateImageFromReferenceSchema, listImageModelsSchema } from './services/imageSchema.js';
+import { createSandboxSchema, runCodeSchema, installPackageSchema, readFileSchema, writeFileSchema, killSandboxSchema } from './services/e2bSchema.js';
 import { respondAudioSchema, listAudioVoicesSchema } from './services/audioSchema.js';
 import { respondTextSchema, listTextModelsSchema } from './services/textSchema.js';
 import {
@@ -54,7 +55,15 @@ export {
   createAccountKeySchema,
   deleteAccountKeySchema,
   openAiCompatibleGetSchema,
-  openAiCompatiblePostSchema
+  openAiCompatiblePostSchema,
+
+  // E2B schemas
+  createSandboxSchema,
+  runCodeSchema,
+  installPackageSchema,
+  readFileSchema,
+  writeFileSchema,
+  killSandboxSchema
 };
 
 /**
@@ -85,6 +94,12 @@ export function getAllToolSchemas() {
     createAccountKeySchema,
     deleteAccountKeySchema,
     openAiCompatibleGetSchema,
-    openAiCompatiblePostSchema
+    openAiCompatiblePostSchema,
+    createSandboxSchema,
+    runCodeSchema,
+    installPackageSchema,
+    readFileSchema,
+    writeFileSchema,
+    killSandboxSchema
   ];
 }
