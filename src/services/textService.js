@@ -6,9 +6,51 @@
 
 const DEBUG = /^(1|true|yes)$/i.test(process.env.DEBUG || process.env.MCP_DEBUG || '');
 const log = (...args) => { if (DEBUG) { try { console.error(...args); } catch {} } };
+const POLLINATIONS_OPENAI_BASE_URL = process.env.POLLINATIONS_API_BASE_URL || 'https://gen.pollinations.ai/v1';
+
+function createAuthHeaders(authConfig, includeJsonContentType = false) {
+  if (!authConfig?.token) {
+    throw new Error('Pollinations API token is required. Set token/POLLINATIONS_TOKEN in MCP env.');
+  }
+
+  const headers = {
+    Authorization: `Bearer ${authConfig.token}`
+  };
+
+  if (includeJsonContentType) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  if (authConfig.referrer) {
+    headers['Referer'] = authConfig.referrer;
+  }
+
+  return headers;
+}
+
+function extractTextFromChatCompletion(result) {
+  const content = result?.choices?.[0]?.message?.content;
+
+  if (typeof content === 'string') {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => (typeof item?.text === 'string' ? item.text : ''))
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  if (typeof result?.output_text === 'string') {
+    return result.output_text;
+  }
+
+  return JSON.stringify(result, null, 2);
+}
 
 /**
- * Responds with text to a prompt using the Pollinations Text API
+ * Responds with text to a prompt using the Pollinations Chat Completions API
  *
  * @param {string} prompt - The text prompt to generate a response for
  * @param {string} [model="openai"] - Model to use for text generation. Use listTextModels to see all available models
@@ -16,61 +58,44 @@ const log = (...args) => { if (DEBUG) { try { console.error(...args); } catch {}
  * @param {number} [temperature] - Controls randomness in the output (0.0 to 2.0)
  * @param {number} [top_p] - Controls diversity via nucleus sampling (0.0 to 1.0)
  * @param {string} [system] - System prompt to guide the model's behavior
- * @param {Object} [authConfig] - Optional authentication configuration {token, referrer}
+ * @param {Object} [authConfig] - Authentication configuration {token, referrer}
  * @returns {Promise<string>} - The generated text response
- * @note Always includes private=true parameter
  */
 export async function respondText(prompt, model = "openai", seed = Math.floor(Math.random() * 1000000), temperature = null, top_p = null, system = null, authConfig = null) {
   if (!prompt || typeof prompt !== 'string') {
     throw new Error('Prompt is required and must be a string');
   }
 
-  // Build the query parameters
-  const queryParams = new URLSearchParams();
-  if (model) queryParams.append('model', model);
-  if (seed !== undefined) queryParams.append('seed', seed);
-  if (temperature !== null) queryParams.append('temperature', temperature);
-  if (top_p !== null) queryParams.append('top_p', top_p);
-  if (system) queryParams.append('system', system);
-
-  // Always set private to true
-  queryParams.append('private', 'true');
-
-  // Construct the URL
-  const encodedPrompt = encodeURIComponent(prompt);
-  const baseUrl = 'https://text.pollinations.ai';
-  let url = `${baseUrl}/${encodedPrompt}`;
-
-  // Add query parameters if they exist
-  const queryString = queryParams.toString();
-  if (queryString) {
-    url += `?${queryString}`;
+  const messages = [];
+  if (system) {
+    messages.push({ role: 'system', content: system });
   }
+  messages.push({ role: 'user', content: prompt });
+
+  const payload = {
+    model,
+    messages,
+    seed,
+    stream: false
+  };
+
+  if (temperature !== null && temperature !== undefined) payload.temperature = temperature;
+  if (top_p !== null && top_p !== undefined) payload.top_p = top_p;
 
   try {
-    // Prepare fetch options with optional auth headers
-    const fetchOptions = {};
-    if (authConfig) {
-      fetchOptions.headers = {};
-      if (authConfig.token) {
-        fetchOptions.headers['Authorization'] = `Bearer ${authConfig.token}`;
-      }
-      if (authConfig.referrer) {
-        fetchOptions.headers['Referer'] = authConfig.referrer;
-      }
-    }
-
-    // Fetch the text from the URL
-    const response = await fetch(url, fetchOptions);
+    const response = await fetch(`${POLLINATIONS_OPENAI_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: createAuthHeaders(authConfig, true),
+      body: JSON.stringify(payload)
+    });
 
     if (!response.ok) {
-      throw new Error(`Failed to generate text: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to generate text (${response.status}): ${errorText || response.statusText}`);
     }
 
-    // Get the text response
-    const textResponse = await response.text();
-
-    return textResponse;
+    const result = await response.json();
+    return extractTextFromChatCompletion(result);
   } catch (error) {
     log('Error generating text:', error);
     throw error;
@@ -80,14 +105,18 @@ export async function respondText(prompt, model = "openai", seed = Math.floor(Ma
 /**
  * List available text generation models from Pollinations API
  *
+ * @param {Object} [authConfig] - Authentication configuration {token, referrer}
  * @returns {Promise<Object>} - Object containing the list of available text models
  */
-export async function listTextModels() {
+export async function listTextModels(authConfig = null) {
   try {
-    const response = await fetch('https://text.pollinations.ai/models');
+    const response = await fetch(`${POLLINATIONS_OPENAI_BASE_URL}/models`, {
+      headers: createAuthHeaders(authConfig)
+    });
 
     if (!response.ok) {
-      throw new Error(`Failed to list text models: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to list text models (${response.status}): ${errorText || response.statusText}`);
     }
 
     const models = await response.json();

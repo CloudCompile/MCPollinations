@@ -6,15 +6,36 @@
 
 const DEBUG = /^(1|true|yes)$/i.test(process.env.DEBUG || process.env.MCP_DEBUG || '');
 const log = (...args) => { if (DEBUG) { try { console.error(...args); } catch {} } };
+const POLLINATIONS_OPENAI_BASE_URL = process.env.POLLINATIONS_API_BASE_URL || 'https://gen.pollinations.ai/v1';
+
+function createAuthHeaders(authConfig, includeJsonContentType = false) {
+  if (!authConfig?.token) {
+    throw new Error('Pollinations API token is required. Set token/POLLINATIONS_TOKEN in MCP env.');
+  }
+
+  const headers = {
+    Authorization: `Bearer ${authConfig.token}`
+  };
+
+  if (includeJsonContentType) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  if (authConfig.referrer) {
+    headers['Referer'] = authConfig.referrer;
+  }
+
+  return headers;
+}
 
 /**
- * Generates an audio response to a text prompt using the Pollinations Text API
+ * Generates an audio response to a text prompt using the Pollinations OpenAI-compatible API
  *
  * @param {string} prompt - The text prompt to respond to with audio
- * @param {string} [voice="alloy"] - Voice to use for audio generation. Available options: "alloy", "echo", "fable", "onyx", "nova", "shimmer", "coral", "verse", "ballad", "ash", "sage", "amuch", "dan"
+ * @param {string} [voice="alloy"] - Voice to use for audio generation
  * @param {number} [seed] - Seed for reproducible results
  * @param {string} [voiceInstructions] - Additional instructions for voice character/style
- * @param {Object} [authConfig] - Optional authentication configuration {token, referrer}
+ * @param {Object} [authConfig] - Authentication configuration {token, referrer}
  * @returns {Promise<Object>} - Object containing the base64 audio data, mime type, and metadata
  */
 export async function respondAudio(prompt, voice = "alloy", seed, voiceInstructions, authConfig = null) {
@@ -22,60 +43,52 @@ export async function respondAudio(prompt, voice = "alloy", seed, voiceInstructi
     throw new Error('Prompt is required and must be a string');
   }
 
-  // Build the query parameters
-  const queryParams = new URLSearchParams();
-  queryParams.append('model', 'openai-audio'); // Required for audio generation
-  queryParams.append('voice', voice);
-  if (seed !== undefined) queryParams.append('seed', seed);
+  const finalPrompt = voiceInstructions
+    ? `${voiceInstructions}\n\n${prompt}`
+    : prompt;
 
-  // Construct the URL
-  let finalPrompt = prompt;
+  const payload = {
+    model: 'openai-audio',
+    modalities: ['text', 'audio'],
+    audio: {
+      voice,
+      format: 'mp3'
+    },
+    messages: [
+      {
+        role: 'user',
+        content: finalPrompt
+      }
+    ],
+    stream: false
+  };
 
-  // Add voice instructions if provided
-  if (voiceInstructions) {
-    finalPrompt = `${voiceInstructions}\n\n${prompt}`;
+  if (seed !== undefined) {
+    payload.seed = seed;
   }
 
-  const encodedPrompt = encodeURIComponent(finalPrompt);
-  const baseUrl = 'https://text.pollinations.ai';
-  let url = `${baseUrl}/${encodedPrompt}`;
-
-  // Add query parameters
-  const queryString = queryParams.toString();
-  url += `?${queryString}`;
-
   try {
-    // Prepare fetch options with optional auth headers
-    const fetchOptions = {};
-    if (authConfig) {
-      fetchOptions.headers = {};
-      if (authConfig.token) {
-        fetchOptions.headers['Authorization'] = `Bearer ${authConfig.token}`;
-      }
-      if (authConfig.referrer) {
-        fetchOptions.headers['Referer'] = authConfig.referrer;
-      }
-    }
-
-    // Fetch the audio from the URL
-    const response = await fetch(url, fetchOptions);
+    const response = await fetch(`${POLLINATIONS_OPENAI_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: createAuthHeaders(authConfig, true),
+      body: JSON.stringify(payload)
+    });
 
     if (!response.ok) {
-      throw new Error(`Failed to generate audio: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to generate audio (${response.status}): ${errorText || response.statusText}`);
     }
 
-    // Get the audio data as an ArrayBuffer
-    const audioBuffer = await response.arrayBuffer();
+    const result = await response.json();
+    const audioData = result?.choices?.[0]?.message?.audio?.data;
 
-    // Convert the ArrayBuffer to a base64 string
-    const base64Data = Buffer.from(audioBuffer).toString('base64');
-
-    // Determine the mime type from the response headers or default to audio/mpeg
-    const contentType = response.headers.get('content-type') || 'audio/mpeg';
+    if (!audioData) {
+      throw new Error('Audio generation succeeded but no audio data was returned by Pollinations.');
+    }
 
     return {
-      data: base64Data,
-      mimeType: contentType,
+      data: audioData,
+      mimeType: 'audio/mpeg',
       metadata: {
         prompt,
         voice,
@@ -90,15 +103,12 @@ export async function respondAudio(prompt, voice = "alloy", seed, voiceInstructi
   }
 }
 
-
-
 /**
  * List available audio voices
  *
  * @returns {Promise<Object>} - Object containing the list of available voice options
  */
 export async function listAudioVoices() {
-  // Return the complete list of available voices
   const voices = [
     "alloy",
     "echo",

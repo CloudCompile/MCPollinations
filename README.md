@@ -10,7 +10,7 @@ A Model Context Protocol (MCP) server that enables AI assistants to generate ima
 - Generate text responses from text prompts
 - Generate audio responses from text prompts
 - List available image and text generation models
-- No authentication required
+- Uses Pollinations OpenAI-compatible API (`https://gen.pollinations.ai/v1`) with token authentication
 - Simple and lightweight
 - Compatible with the Model Context Protocol (MCP)
 
@@ -64,6 +64,15 @@ node /path/to/MCPollinations/pollinations-mcp-server.js
 
 ```
 
+## Deploy to Vercel (One Click)
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/CloudCompile/MCPollinations)
+
+After deploy:
+- Your remote MCP URL is `https://<your-vercel-project>.vercel.app/mcp` (root `/` also works).
+- In Claude **Add custom connector**, paste that URL in **Remote MCP server URL**.
+- Set `POLLINATIONS_TOKEN` (or `token`) in Vercel environment variables.
+
 ## MCP Integration
 
 To integrate the server with applications that support the Model Context Protocol (MCP):
@@ -87,7 +96,7 @@ If you prefer to skip the generator, copy this into your MCP client config:
     "command": "npx",
     "args": ["-y", "@pinkpixel/mcpollinations"],
     "env": {
-      "token": "YOUR_TOKEN_OPTIONAL",
+      "token": "YOUR_POLLINATIONS_TOKEN",
       "referrer": "your-app-or-domain-optional",
       "IMAGE_MODEL": "flux",
       "IMAGE_WIDTH": "1024",
@@ -108,7 +117,7 @@ If you prefer to skip the generator, copy this into your MCP client config:
 2. Follow the prompts to customize your configuration or use the defaults.
    - Set an output directory (relative paths recommended for portability)
      - **Windows users**: Consider using absolute paths (e.g., `C:\Users\YourName\Pictures\MCPollinations`) for more reliable file saving
-   - Configure optional authentication (token, referrer) under `env`
+   - Configure authentication (`token` required, `referrer` optional) under `env`
    - Configure default parameters for image generation (with a list of available models, dimensions, etc.)
    - Configure default parameters for text generation (with a list of available models)
    - Configure default parameters for audio generation (voice)
@@ -121,9 +130,9 @@ After integration, you can use commands like:
 
 "Generate an image of a sunset over the ocean using MCPollinations"
 
-## Authentication (Optional)
+## Authentication (Required)
 
-MCPollinations supports optional authentication to provide access to more models and better rate limits. The server works perfectly without authentication (free tier), but users with API tokens can get enhanced access.
+MCPollinations now targets the auth-only Pollinations OpenAI-compatible endpoint: `https://gen.pollinations.ai/v1`.
 
 ### Configuration Methods
 
@@ -156,10 +165,10 @@ You can also provide `POLLINATIONS_TOKEN` and `POLLINATIONS_REFERRER` instead; t
 
 ### Authentication Parameters
 
-- **`token`** (optional): Your Pollinations API token for enhanced access
+- **`token`** (required): Your Pollinations API token
 - **`referrer`** (optional): Your domain/application referrer URL
 
-Both parameters are completely optional. Leave them empty or unset to use the free tier.
+`referrer` is optional, but `token` is required for API calls.
 
 ## Using Your Configuration Settings
 

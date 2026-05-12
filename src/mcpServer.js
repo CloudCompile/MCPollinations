@@ -1,0 +1,346 @@
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import {
+  CallToolRequestSchema,
+  ErrorCode,
+  ListToolsRequestSchema,
+  McpError,
+} from '@modelcontextprotocol/sdk/types.js';
+import {
+  generateImageUrl,
+  generateImage,
+  editImage,
+  generateImageFromReference,
+  respondAudio,
+  listImageModels,
+  listTextModels,
+  listAudioVoices,
+  respondText,
+} from './index.js';
+import { getAllToolSchemas } from './schemas.js';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import player from 'play-sound';
+
+const DEBUG = /^(1|true|yes)$/i.test(process.env.DEBUG || process.env.MCP_DEBUG || '');
+const log = (...args) => { if (DEBUG) { try { console.error(...args); } catch {} } };
+const audioPlayer = player({});
+
+function parseBool(value, fallback) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const v = String(value).toLowerCase();
+  if (["1", "true", "yes", "y"].includes(v)) return true;
+  if (["0", "false", "no", "n"].includes(v)) return false;
+  return fallback;
+}
+
+function getAuthConfig() {
+  const authConfig = {
+    token: process.env.POLLINATIONS_TOKEN || process.env.TOKEN || process.env.token || null,
+    referrer: process.env.POLLINATIONS_REFERRER || process.env.REFERRER || process.env.referrer || null
+  };
+
+  const finalAuthConfig = (authConfig.token || authConfig.referrer) ? authConfig : null;
+
+  if (finalAuthConfig) {
+    log('Auth configuration loaded:', {
+      hasToken: !!finalAuthConfig.token,
+      hasReferrer: !!finalAuthConfig.referrer
+    });
+  } else {
+    log('No auth configuration found; authenticated endpoints may fail.');
+  }
+
+  return finalAuthConfig;
+}
+
+function getDefaultConfig() {
+  const config = {
+    image: {
+      model: process.env.DEFAULT_IMAGE_MODEL || process.env.IMAGE_MODEL || 'flux',
+      width: Number(process.env.DEFAULT_IMAGE_WIDTH || process.env.IMAGE_WIDTH || 1024) || 1024,
+      height: Number(process.env.DEFAULT_IMAGE_HEIGHT || process.env.IMAGE_HEIGHT || 1024) || 1024,
+      enhance: parseBool(process.env.DEFAULT_IMAGE_ENHANCE ?? process.env.IMAGE_ENHANCE, true),
+      safe: parseBool(process.env.DEFAULT_IMAGE_SAFE ?? process.env.IMAGE_SAFE, false)
+    },
+    text: {
+      model: process.env.DEFAULT_TEXT_MODEL || process.env.TEXT_MODEL || 'openai',
+      temperature: process.env.DEFAULT_TEXT_TEMPERATURE || process.env.TEXT_TEMPERATURE,
+      top_p: process.env.DEFAULT_TEXT_TOP_P || process.env.TEXT_TOP_P,
+      system: process.env.DEFAULT_TEXT_SYSTEM || process.env.TEXT_SYSTEM
+    },
+    audio: {
+      voice: process.env.DEFAULT_AUDIO_VOICE || process.env.AUDIO_VOICE || 'alloy'
+    },
+    resources: {
+      output_dir: process.env.OUTPUT_DIR || process.env.DEFAULT_OUTPUT_DIR || './mcpollinations-output'
+    }
+  };
+
+  log('Default params:', {
+    image: config.image,
+    text: {
+      model: config.text.model,
+      temperature: config.text.temperature,
+      top_p: config.text.top_p,
+      hasSystem: !!config.text.system
+    },
+    audio: config.audio,
+    resources: config.resources
+  });
+
+  return config;
+}
+
+export function createPollinationsServer() {
+  const finalAuthConfig = getAuthConfig();
+  const defaultConfig = getDefaultConfig();
+
+  const server = new Server(
+    {
+      name: '@pinkpixel/mcpollinations',
+      version: '1.3.1',
+    },
+    {
+      capabilities: {
+        tools: {}
+      }
+    }
+  );
+
+  server.onerror = (error) => log('[MCP Error]', error);
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: getAllToolSchemas()
+  }));
+
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+
+    if (name === 'generateImageUrl') {
+      try {
+        const { prompt, model = defaultConfig.image.model, seed, width = defaultConfig.image.width, height = defaultConfig.image.height, enhance = defaultConfig.image.enhance, safe = defaultConfig.image.safe } = args;
+        const result = await generateImageUrl(prompt, model, seed, width, height, enhance, safe, finalAuthConfig);
+        return {
+          content: [
+            { type: 'text', text: JSON.stringify(result, null, 2) }
+          ]
+        };
+      } catch (error) {
+        return {
+          content: [
+            { type: 'text', text: `Error generating image URL: ${error.message}` }
+          ],
+          isError: true
+        };
+      }
+    } else if (name === 'generateImage') {
+      try {
+        const { prompt, model = defaultConfig.image.model, seed, width = defaultConfig.image.width, height = defaultConfig.image.height, enhance = defaultConfig.image.enhance, safe = defaultConfig.image.safe, outputPath = defaultConfig.resources.output_dir, fileName = '', format = 'png' } = args;
+        const result = await generateImage(prompt, model, seed, width, height, enhance, safe, outputPath, fileName, format, finalAuthConfig);
+
+        const content = [
+          {
+            type: 'image',
+            data: result.data,
+            mimeType: result.mimeType
+          }
+        ];
+
+        let responseText = `Generated image from prompt: "${prompt}"\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
+
+        if (result.filePath) {
+          responseText += `\n\nImage saved to: ${result.filePath}`;
+        }
+
+        content.push({ type: 'text', text: responseText });
+
+        return { content };
+      } catch (error) {
+        return {
+          content: [
+            { type: 'text', text: `Error generating image: ${error.message}` }
+          ],
+          isError: true
+        };
+      }
+    } else if (name === 'respondAudio') {
+      try {
+        const { prompt, voice = defaultConfig.audio.voice, seed, voiceInstructions } = args;
+        const result = await respondAudio(prompt, voice, seed, voiceInstructions, finalAuthConfig);
+
+        const tempDir = os.tmpdir();
+        const tempFilePath = path.join(tempDir, `pollinations-audio-${Date.now()}.mp3`);
+
+        fs.writeFileSync(tempFilePath, Buffer.from(result.data, 'base64'));
+
+        audioPlayer.play(tempFilePath, (err) => {
+          if (err) log('Error playing audio:', err);
+
+          try {
+            fs.unlinkSync(tempFilePath);
+          } catch (cleanupErr) {
+            log('Error cleaning up temp file:', cleanupErr);
+          }
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Audio has been played.\n\nAudio metadata: ${JSON.stringify(result.metadata, null, 2)}`
+            }
+          ]
+        };
+      } catch (error) {
+        return {
+          content: [
+            { type: 'text', text: `Error generating audio: ${error.message}` }
+          ],
+          isError: true
+        };
+      }
+    } else if (name === 'listImageModels') {
+      try {
+        const result = await listImageModels(finalAuthConfig);
+        return {
+          content: [
+            { type: 'text', text: JSON.stringify(result, null, 2) }
+          ]
+        };
+      } catch (error) {
+        return {
+          content: [
+            { type: 'text', text: `Error listing image models: ${error.message}` }
+          ],
+          isError: true
+        };
+      }
+    } else if (name === 'listTextModels') {
+      try {
+        const result = await listTextModels(finalAuthConfig);
+        return {
+          content: [
+            { type: 'text', text: JSON.stringify(result, null, 2) }
+          ]
+        };
+      } catch (error) {
+        return {
+          content: [
+            { type: 'text', text: `Error listing text models: ${error.message}` }
+          ],
+          isError: true
+        };
+      }
+    } else if (name === 'listAudioVoices') {
+      try {
+        const result = await listAudioVoices();
+        return {
+          content: [
+            { type: 'text', text: JSON.stringify(result, null, 2) }
+          ]
+        };
+      } catch (error) {
+        return {
+          content: [
+            { type: 'text', text: `Error listing audio voices: ${error.message}` }
+          ],
+          isError: true
+        };
+      }
+    } else if (name === 'respondText') {
+      try {
+        const { prompt, model = defaultConfig.text.model, seed, temperature = defaultConfig.text.temperature ? Number(defaultConfig.text.temperature) : undefined, top_p = defaultConfig.text.top_p ? Number(defaultConfig.text.top_p) : undefined, system = defaultConfig.text.system } = args;
+        const result = await respondText(prompt, model, seed, temperature, top_p, system, finalAuthConfig);
+        return {
+          content: [
+            { type: 'text', text: result }
+          ]
+        };
+      } catch (error) {
+        return {
+          content: [
+            { type: 'text', text: `Error generating text response: ${error.message}` }
+          ],
+          isError: true
+        };
+      }
+
+    } else if (name === 'editImage') {
+      try {
+        const { prompt, imageUrl, model = 'kontext', seed, width = defaultConfig.image.width, height = defaultConfig.image.height, enhance = defaultConfig.image.enhance, safe = defaultConfig.image.safe, outputPath = defaultConfig.resources.output_dir, fileName = '', format = 'png' } = args;
+        const result = await editImage(prompt, imageUrl, model, seed, width, height, enhance, safe, outputPath, fileName, format, finalAuthConfig);
+
+        const content = [
+          {
+            type: 'image',
+            data: result.data,
+            mimeType: result.mimeType
+          }
+        ];
+
+        let responseText = `Edited image from prompt: "${prompt}"\nInput image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
+
+        if (result.filePath) {
+          responseText += `\n\nImage saved to: ${result.filePath}`;
+        }
+
+        content.push({
+          type: 'text',
+          text: responseText
+        });
+
+        return { content };
+      } catch (error) {
+        return {
+          content: [
+            { type: 'text', text: `Error editing image: ${error.message}` }
+          ],
+          isError: true
+        };
+      }
+
+    } else if (name === 'generateImageFromReference') {
+      try {
+        const { prompt, imageUrl, model = 'kontext', seed, width = defaultConfig.image.width, height = defaultConfig.image.height, enhance = defaultConfig.image.enhance, safe = defaultConfig.image.safe, outputPath = defaultConfig.resources.output_dir, fileName = '', format = 'png' } = args;
+        const result = await generateImageFromReference(prompt, imageUrl, model, seed, width, height, enhance, safe, outputPath, fileName, format, finalAuthConfig);
+
+        const content = [
+          {
+            type: 'image',
+            data: result.data,
+            mimeType: result.mimeType
+          }
+        ];
+
+        let responseText = `Generated image from reference: "${prompt}"\nReference image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
+
+        if (result.filePath) {
+          responseText += `\n\nImage saved to: ${result.filePath}`;
+        }
+
+        content.push({
+          type: 'text',
+          text: responseText
+        });
+
+        return { content };
+      } catch (error) {
+        return {
+          content: [
+            { type: 'text', text: `Error generating image from reference: ${error.message}` }
+          ],
+          isError: true
+        };
+      }
+
+    } else {
+      throw new McpError(
+        ErrorCode.MethodNotFound,
+        `Unknown tool: ${name}`
+      );
+    }
+  });
+
+  return server;
+}

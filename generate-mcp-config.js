@@ -17,7 +17,7 @@ const defaultConfig = {
       "@pinkpixel/mcpollinations"
     ],
     "env": {
-      // Auth (optional)
+      // Auth
       "token": "",
       "referrer": "",
 
@@ -88,14 +88,8 @@ async function generateMcpConfig() {
     }
 
     // Authentication configuration
-    console.log('\nAuthentication Configuration (Optional):');
-    console.log('These env settings enable access to newer models and higher rate limits.');
-    console.log('Leave empty to use the free (seed) tier.');
-
-    const authToken = await prompt('API Token (optional): ');
-    if (authToken && authToken.trim()) {
-      config[configKey].env.token = authToken.trim();
-    }
+    console.log('\nAuthentication Configuration:');
+    console.log('Pollinations now uses the auth-only endpoint at https://gen.pollinations.ai/v1');
 
     const authReferrer = await prompt('Referrer (domain or app id, optional): ');
     if (authReferrer && authReferrer.trim()) {
@@ -157,6 +151,17 @@ async function generateMcpConfig() {
     }
 
     // Tool restrictions removed; MCP clients usually control allow lists.
+  }
+
+  const configKey = 'mcpollinations';
+  while (!config[configKey].env.token || !config[configKey].env.token.trim()) {
+    console.log('\nAuthentication Configuration:');
+    const authToken = await prompt('API Token (required): ');
+    if (!authToken.trim()) {
+      console.log('A token is required for the current Pollinations endpoint.');
+      continue;
+    }
+    config[configKey].env.token = authToken.trim();
   }
 
   // Ask for output options

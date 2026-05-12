@@ -6,7 +6,7 @@
       "@pinkpixel/mcpollinations@latest"
     ],
     "env": {
-      "token": "",
+      "token": "YOUR_POLLINATIONS_TOKEN",
       "referrer": "",
 
       "IMAGE_MODEL": "flux",
