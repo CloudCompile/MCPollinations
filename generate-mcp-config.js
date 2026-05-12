@@ -71,10 +71,24 @@ async function generateMcpConfig() {
 
   let config = JSON.parse(JSON.stringify(defaultConfig)); // Deep copy
 
+  const configKey = 'mcpollinations';
+  while (!config[configKey].env.token || !config[configKey].env.token.trim()) {
+    console.log('\nAuthentication Configuration:');
+    console.log('Pollinations now uses the auth-only endpoint at https://gen.pollinations.ai/v1');
+    const authToken = await prompt('API Token (required): ');
+    const normalizedToken = (authToken || '').trim();
+    if (['exit', 'quit'].includes(normalizedToken.toLowerCase())) {
+      throw new Error('Configuration cancelled by user.');
+    }
+    if (!normalizedToken) {
+      console.log('A token is required for the current Pollinations endpoint.');
+      continue;
+    }
+    config[configKey].env.token = normalizedToken;
+  }
+
   if (!useDefaults) {
     console.log('\nCustomizing configuration:');
-
-    const configKey = 'mcpollinations';
 
     // Resources customization
     console.log('\nResource Directories:');
@@ -87,10 +101,7 @@ async function generateMcpConfig() {
       config[configKey].env.OUTPUT_DIR = outputDir;
     }
 
-    // Authentication configuration
-    console.log('\nAuthentication Configuration:');
-    console.log('Pollinations now uses the auth-only endpoint at https://gen.pollinations.ai/v1');
-
+    // Optional referrer configuration
     const authReferrer = await prompt('Referrer (domain or app id, optional): ');
     if (authReferrer && authReferrer.trim()) {
       config[configKey].env.referrer = authReferrer.trim();
@@ -151,17 +162,6 @@ async function generateMcpConfig() {
     }
 
     // Tool restrictions removed; MCP clients usually control allow lists.
-  }
-
-  const configKey = 'mcpollinations';
-  while (!config[configKey].env.token || !config[configKey].env.token.trim()) {
-    console.log('\nAuthentication Configuration:');
-    const authToken = await prompt('API Token (required): ');
-    if (!authToken.trim()) {
-      console.log('A token is required for the current Pollinations endpoint.');
-      continue;
-    }
-    config[configKey].env.token = authToken.trim();
   }
 
   // Ask for output options

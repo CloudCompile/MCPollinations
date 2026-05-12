@@ -141,15 +141,22 @@ export async function generateImage(prompt, model = 'flux', seed = Math.floor(Ma
       throw new Error('Image generation succeeded but no image data was returned by Pollinations.');
     }
 
+    const validFormats = ['png', 'jpeg', 'jpg', 'webp'];
+    const hasValidFormat = validFormats.includes(format);
+    if (!hasValidFormat) {
+      warn(`Invalid format '${format}', defaulting to 'png'`);
+    }
+    const extension = hasValidFormat ? format : 'png';
+
     let finalBase64Data = base64Data;
-    let contentType = `image/${format === 'jpg' ? 'jpeg' : format}`;
+    let contentType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;
 
     if (!finalBase64Data && returnedImageUrl) {
       const imageResponse = await fetch(returnedImageUrl, {
         headers: createAuthHeaders(authConfig)
       });
       if (!imageResponse.ok) {
-        throw new Error(`Failed to download generated image: ${imageResponse.statusText}`);
+        throw new Error(`Failed to download generated image (${imageResponse.status}) from ${returnedImageUrl}: ${imageResponse.statusText}`);
       }
       const imageBuffer = await imageResponse.arrayBuffer();
       finalBase64Data = Buffer.from(imageBuffer).toString('base64');
@@ -180,13 +187,6 @@ export async function generateImage(prompt, model = 'flux', seed = Math.floor(Ma
     if (!fs.existsSync(outputPath)) {
       fs.mkdirSync(outputPath, { recursive: true });
     }
-
-    // Validate the file format
-    const validFormats = ['png', 'jpeg', 'jpg', 'webp'];
-    if (!validFormats.includes(format)) {
-      warn(`Invalid format '${format}', defaulting to 'png'`);
-    }
-    const extension = validFormats.includes(format) ? format : 'png';
 
     // Generate a file name if not provided or ensure it's unique
     let baseFileName = fileName;

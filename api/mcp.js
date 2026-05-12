@@ -1,6 +1,35 @@
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createPollinationsServer } from '../src/mcpServer.js';
 
+const DEBUG = /^(1|true|yes)$/i.test(process.env.DEBUG || process.env.MCP_DEBUG || '');
+const log = (...args) => { if (DEBUG) { try { console.error(...args); } catch {} } };
+
+async function getParsedBody(req) {
+  if (req.body !== undefined) {
+    return req.body;
+  }
+
+  if (req.method !== 'POST') {
+    return undefined;
+  }
+
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  if (!chunks.length) {
+    return undefined;
+  }
+
+  const raw = Buffer.concat(chunks).toString('utf8');
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+}
+
 export const config = {
   runtime: 'nodejs'
 };
@@ -30,11 +59,12 @@ export default async function handler(req, res) {
   });
 
   try {
+    const parsedBody = await getParsedBody(req);
     await server.connect(transport);
-    await transport.handleRequest(req, res, req.body);
+    await transport.handleRequest(req, res, parsedBody);
     res.on('close', () => {
-      transport.close().catch(() => {});
-      server.close().catch(() => {});
+      transport.close().catch((error) => log('Transport close error:', error));
+      server.close().catch((error) => log('Server close error:', error));
     });
   } catch (error) {
     if (!res.headersSent) {

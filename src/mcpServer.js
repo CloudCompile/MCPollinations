@@ -48,7 +48,7 @@ function getAuthConfig() {
       hasReferrer: !!finalAuthConfig.referrer
     });
   } else {
-    log('No auth configuration found; authenticated endpoints may fail.');
+    log('No auth configuration found; API requests will fail without token auth.');
   }
 
   return finalAuthConfig;
