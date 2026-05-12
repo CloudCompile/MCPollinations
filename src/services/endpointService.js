@@ -94,16 +94,12 @@ export async function postSimpleText(prompt, model = 'openai', authConfig = null
   }
 
   if ((!messages || messages.length === 0) && (!prompt || typeof prompt !== 'string')) {
-    throw new Error('prompt is required and must be a string when messages is not provided');
+    throw new Error('Either a valid prompt string or a non-empty messages array is required');
   }
 
   const normalizedMessages = Array.isArray(messages) && messages.length > 0
     ? messages
     : [{ role: 'user', content: prompt }];
-
-  if (!Array.isArray(normalizedMessages) || normalizedMessages.length === 0) {
-    throw new Error('Either prompt or messages is required');
-  }
 
   const payload = { model, messages: normalizedMessages };
   return await requestPollinations(`${POLLINATIONS_BASE_URL}/text`, {
