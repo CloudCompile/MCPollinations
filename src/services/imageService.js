@@ -7,6 +7,27 @@
 const DEBUG = /^(1|true|yes)$/i.test(process.env.DEBUG || process.env.MCP_DEBUG || '');
 const log = (...args) => { if (DEBUG) { try { console.error(...args); } catch {} } };
 const warn = (...args) => { if (DEBUG) { try { console.warn(...args); } catch {} } };
+const POLLINATIONS_OPENAI_BASE_URL = process.env.POLLINATIONS_API_BASE_URL || 'https://gen.pollinations.ai/v1';
+
+function createAuthHeaders(authConfig, includeJsonContentType = false) {
+  if (!authConfig?.token) {
+    throw new Error('Pollinations API token is required. Set token/POLLINATIONS_TOKEN in MCP env.');
+  }
+
+  const headers = {
+    Authorization: `Bearer ${authConfig.token}`
+  };
+
+  if (includeJsonContentType) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  if (authConfig.referrer) {
+    headers['Referer'] = authConfig.referrer;
+  }
+
+  return headers;
+}
 
 /**
  * Generates an image URL from a text prompt using the Pollinations Image API
@@ -27,47 +48,42 @@ export async function generateImageUrl(prompt, model = 'flux', seed = Math.floor
     throw new Error('Prompt is required and must be a string');
   }
 
-  // Parameters are now directly passed as function arguments
+  const payload = {
+    model,
+    prompt,
+    size: `${width}x${height}`,
+    seed,
+    enhance,
+    safe,
+    response_format: 'url'
+  };
 
-  // Build the query parameters
-  const queryParams = new URLSearchParams();
+  const response = await fetch(`${POLLINATIONS_OPENAI_BASE_URL}/images/generations`, {
+    method: 'POST',
+    headers: createAuthHeaders(authConfig, true),
+    body: JSON.stringify(payload)
+  });
 
-  // Always include model (with default 'flux')
-  queryParams.append('model', model);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to generate image URL (${response.status}): ${errorText || response.statusText}`);
+  }
 
-  // Add other parameters
-  if (seed !== undefined) queryParams.append('seed', seed);
-  if (width) queryParams.append('width', width);
-  if (height) queryParams.append('height', height);
+  const result = await response.json();
+  const imageUrl = result?.data?.[0]?.url;
 
-  // Add enhance parameter if true
-  if (enhance) queryParams.append('enhance', 'true');
+  if (!imageUrl) {
+    throw new Error('Image generation succeeded but no image URL was returned by Pollinations.');
+  }
 
-  // Add parameters
-  queryParams.append('nologo', 'true'); // Always set nologo to true
-  queryParams.append('private', 'true'); // Always set private to true)
-  queryParams.append('safe', safe.toString()); // Use the customizable safe parameter
-
-  // Construct the URL
-  const encodedPrompt = encodeURIComponent(prompt);
-  const baseUrl = 'https://image.pollinations.ai';
-  let url = `${baseUrl}/prompt/${encodedPrompt}`;
-
-  // Add query parameters
-  const queryString = queryParams.toString();
-  url += `?${queryString}`;
-
-  // Return the URL directly, keeping it simple
   return {
-    imageUrl: url,
+    imageUrl,
     prompt,
     width,
     height,
     model,
     seed,
     enhance,
-    private: true,
-    nologo: true,
     safe
   };
 }
@@ -95,52 +111,70 @@ export async function generateImage(prompt, model = 'flux', seed = Math.floor(Ma
     throw new Error('Prompt is required and must be a string');
   }
 
-  // First, generate the image URL
-  const urlResult = await generateImageUrl(prompt, model, seed, width, height, enhance, safe, authConfig);
+  const validFormats = ['png', 'jpeg', 'jpg', 'webp'];
+  const hasValidFormat = validFormats.includes(format);
+  if (!hasValidFormat) {
+    warn(`Invalid format '${format}', defaulting to 'png'`);
+  }
+  const extension = hasValidFormat ? format : 'png';
 
   try {
-    // Prepare fetch options with optional auth headers
-    const fetchOptions = {};
-    if (authConfig) {
-      fetchOptions.headers = {};
-      if (authConfig.token) {
-        fetchOptions.headers['Authorization'] = `Bearer ${authConfig.token}`;
-      }
-      if (authConfig.referrer) {
-        fetchOptions.headers['Referer'] = authConfig.referrer;
-      }
-    }
+    const payload = {
+      model,
+      prompt,
+      size: `${width}x${height}`,
+      seed,
+      enhance,
+      safe,
+      response_format: 'b64_json'
+    };
 
-    // Fetch the image from the URL
-    const response = await fetch(urlResult.imageUrl, fetchOptions);
+    const response = await fetch(`${POLLINATIONS_OPENAI_BASE_URL}/images/generations`, {
+      method: 'POST',
+      headers: createAuthHeaders(authConfig, true),
+      body: JSON.stringify(payload)
+    });
 
     if (!response.ok) {
-      throw new Error(`Failed to generate image: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to generate image (${response.status}): ${errorText || response.statusText}`);
     }
 
-    // Get the image data as an ArrayBuffer
-    const imageBuffer = await response.arrayBuffer();
+    const generation = await response.json();
+    const base64Data = generation?.data?.[0]?.b64_json;
+    const returnedImageUrl = generation?.data?.[0]?.url;
 
-    // Convert the ArrayBuffer to a base64 string
-    const base64Data = Buffer.from(imageBuffer).toString('base64');
+    if (!base64Data && !returnedImageUrl) {
+      throw new Error('Image generation succeeded but no image data was returned by Pollinations.');
+    }
 
-    // Determine the mime type from the response headers or default to image/jpeg
-    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    let finalBase64Data = base64Data;
+    let contentType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;
+
+    if (!finalBase64Data && returnedImageUrl) {
+      const imageResponse = await fetch(returnedImageUrl, {
+        headers: createAuthHeaders(authConfig)
+      });
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to download generated image (${imageResponse.status}) from ${returnedImageUrl}: ${imageResponse.statusText}`);
+      }
+      const imageBuffer = await imageResponse.arrayBuffer();
+      finalBase64Data = Buffer.from(imageBuffer).toString('base64');
+      contentType = imageResponse.headers.get('content-type') || contentType;
+    }
 
     // Prepare the result object
     const result = {
-      data: base64Data,
+      data: finalBase64Data,
       mimeType: contentType,
       metadata: {
-        prompt: urlResult.prompt,
-        width: urlResult.width,
-        height: urlResult.height,
-        model: urlResult.model,
-        seed: urlResult.seed,
-        enhance: urlResult.enhance,
-        private: urlResult.private,
-        nologo: urlResult.nologo,
-        safe: urlResult.safe
+        prompt,
+        width,
+        height,
+        model,
+        seed,
+        enhance,
+        safe
       }
     };
 
@@ -153,13 +187,6 @@ export async function generateImage(prompt, model = 'flux', seed = Math.floor(Ma
     if (!fs.existsSync(outputPath)) {
       fs.mkdirSync(outputPath, { recursive: true });
     }
-
-    // Validate the file format
-    const validFormats = ['png', 'jpeg', 'jpg', 'webp'];
-    if (!validFormats.includes(format)) {
-      warn(`Invalid format '${format}', defaulting to 'png'`);
-    }
-    const extension = validFormats.includes(format) ? format : 'png';
 
     // Generate a file name if not provided or ensure it's unique
     let baseFileName = fileName;
@@ -185,7 +212,7 @@ export async function generateImage(prompt, model = 'flux', seed = Math.floor(Ma
     }
 
     // Save the image to the file
-    fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+    fs.writeFileSync(filePath, Buffer.from(finalBase64Data, 'base64'));
 
     // Add the file path to the result
     result.filePath = filePath;
@@ -518,12 +545,15 @@ export async function generateImageFromReference(prompt, imageUrl, model = 'kont
  *
  * @returns {Promise<Object>} - Object containing the list of available image models
  */
-export async function listImageModels() {
+export async function listImageModels(authConfig = null) {
   try {
-    const response = await fetch('https://image.pollinations.ai/models');
+    const response = await fetch(`${POLLINATIONS_OPENAI_BASE_URL}/models`, {
+      headers: createAuthHeaders(authConfig)
+    });
 
     if (!response.ok) {
-      throw new Error(`Failed to list models: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to list models (${response.status}): ${errorText || response.statusText}`);
     }
 
     return await response.json();

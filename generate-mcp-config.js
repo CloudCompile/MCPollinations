@@ -17,7 +17,7 @@ const defaultConfig = {
       "@pinkpixel/mcpollinations"
     ],
     "env": {
-      // Auth (optional)
+      // Auth
       "token": "",
       "referrer": "",
 
@@ -71,10 +71,25 @@ async function generateMcpConfig() {
 
   let config = JSON.parse(JSON.stringify(defaultConfig)); // Deep copy
 
+  const configKey = 'mcpollinations';
+  while (!config[configKey].env.token || !config[configKey].env.token.trim()) {
+    console.log('\nAuthentication Configuration:');
+    console.log('Pollinations now uses the auth-only endpoint at https://gen.pollinations.ai/v1');
+    console.log('Get your API key at: https://enter.pollinations.ai');
+    const authToken = await prompt('API Token (required): ');
+    const normalizedToken = (authToken || '').trim();
+    if (['exit', 'quit'].includes(normalizedToken.toLowerCase())) {
+      throw new Error('Configuration cancelled by user.');
+    }
+    if (!normalizedToken) {
+      console.log('A token is required for the current Pollinations endpoint.');
+      continue;
+    }
+    config[configKey].env.token = normalizedToken;
+  }
+
   if (!useDefaults) {
     console.log('\nCustomizing configuration:');
-
-    const configKey = 'mcpollinations';
 
     // Resources customization
     console.log('\nResource Directories:');
@@ -87,16 +102,7 @@ async function generateMcpConfig() {
       config[configKey].env.OUTPUT_DIR = outputDir;
     }
 
-    // Authentication configuration
-    console.log('\nAuthentication Configuration (Optional):');
-    console.log('These env settings enable access to newer models and higher rate limits.');
-    console.log('Leave empty to use the free (seed) tier.');
-
-    const authToken = await prompt('API Token (optional): ');
-    if (authToken && authToken.trim()) {
-      config[configKey].env.token = authToken.trim();
-    }
-
+    // Optional referrer configuration
     const authReferrer = await prompt('Referrer (domain or app id, optional): ');
     if (authReferrer && authReferrer.trim()) {
       config[configKey].env.referrer = authReferrer.trim();

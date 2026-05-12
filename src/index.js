@@ -8,6 +8,22 @@
 import { generateImageUrl, generateImage, editImage, generateImageFromReference, listImageModels } from './services/imageService.js';
 import { respondAudio, listAudioVoices } from './services/audioService.js';
 import { respondText, listTextModels } from './services/textService.js';
+import {
+  getSimpleText,
+  postSimpleText,
+  getSimpleImageUrl,
+  getSimpleVideoUrl,
+  getSimpleAudioUrl,
+  createSpeech,
+  transcribeAudioFromUrl,
+  createEmbeddings,
+  listModels,
+  getAccountData,
+  createAccountKey,
+  deleteAccountKey,
+  openAiCompatiblePost,
+  openAiCompatibleGet
+} from './services/endpointService.js';
 
 
 // Export all service functions
@@ -26,6 +42,22 @@ export {
   // Text services
   respondText,
   listTextModels,
+
+  // Extended endpoint services
+  getSimpleText,
+  postSimpleText,
+  getSimpleImageUrl,
+  getSimpleVideoUrl,
+  getSimpleAudioUrl,
+  createSpeech,
+  transcribeAudioFromUrl,
+  createEmbeddings,
+  listModels,
+  getAccountData,
+  createAccountKey,
+  deleteAccountKey,
+  openAiCompatiblePost,
+  openAiCompatibleGet
 };
 
 // If this file is run directly (e.g., with Node.js)
