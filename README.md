@@ -243,6 +243,22 @@ The MCP server provides the following tools:
 8. `listTextModels` - Lists available models for text generation
 9. `listAudioVoices` - Lists all available voices for audio generation
 
+### **Extended Pollinations Endpoint Tools**
+10. `getSimpleText` - GET `/text/{prompt}` plain-text generation
+11. `postSimpleText` - POST `/text` plain-text generation
+12. `getSimpleImageUrl` - GET `/image/{prompt}` direct image URL
+13. `getSimpleVideoUrl` - GET `/video/{prompt}` direct video URL
+14. `getSimpleAudioUrl` - GET `/audio/{text}` direct audio URL
+15. `createSpeech` - POST `/v1/audio/speech` (returns base64 mp3)
+16. `transcribeAudioFromUrl` - POST `/v1/audio/transcriptions` from a public audio URL
+17. `createEmbeddings` - POST `/v1/embeddings`
+18. `listModels` - model discovery across `/v1/models`, `/models`, `/text/models`, `/image/models`, `/audio/models`, `/embeddings/models`
+19. `getAccountData` - account reads (`/account/profile`, `/account/balance`, `/account/usage`, `/account/usage/daily`, `/account/earnings`, `/account/keys`, `/account/key`, `/account/key/usage`)
+20. `createAccountKey` - POST `/account/keys`
+21. `deleteAccountKey` - DELETE `/account/keys/{id}`
+22. `openAiCompatibleGet` - generic GET helper for any Pollinations endpoint
+23. `openAiCompatiblePost` - generic POST helper for any Pollinations endpoint (e.g. `/v1/images/edits`)
+
 ## Text Generation Details
 
 ### Available Parameters

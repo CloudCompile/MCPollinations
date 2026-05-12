@@ -5,6 +5,22 @@
 import { generateImageUrlSchema, generateImageSchema, editImageSchema, generateImageFromReferenceSchema, listImageModelsSchema } from './services/imageSchema.js';
 import { respondAudioSchema, listAudioVoicesSchema } from './services/audioSchema.js';
 import { respondTextSchema, listTextModelsSchema } from './services/textSchema.js';
+import {
+  getSimpleTextSchema,
+  postSimpleTextSchema,
+  getSimpleImageUrlSchema,
+  getSimpleVideoUrlSchema,
+  getSimpleAudioUrlSchema,
+  createSpeechSchema,
+  transcribeAudioFromUrlSchema,
+  createEmbeddingsSchema,
+  listModelsSchema,
+  getAccountDataSchema,
+  createAccountKeySchema,
+  deleteAccountKeySchema,
+  openAiCompatibleGetSchema,
+  openAiCompatiblePostSchema
+} from './services/endpointSchema.js';
 
 
 // Re-export all schemas
@@ -22,7 +38,23 @@ export {
 
   // Text schemas
   respondTextSchema,
-  listTextModelsSchema
+  listTextModelsSchema,
+
+  // Extended endpoint schemas
+  getSimpleTextSchema,
+  postSimpleTextSchema,
+  getSimpleImageUrlSchema,
+  getSimpleVideoUrlSchema,
+  getSimpleAudioUrlSchema,
+  createSpeechSchema,
+  transcribeAudioFromUrlSchema,
+  createEmbeddingsSchema,
+  listModelsSchema,
+  getAccountDataSchema,
+  createAccountKeySchema,
+  deleteAccountKeySchema,
+  openAiCompatibleGetSchema,
+  openAiCompatiblePostSchema
 };
 
 /**
@@ -39,6 +71,20 @@ export function getAllToolSchemas() {
     respondAudioSchema,
     listAudioVoicesSchema,
     respondTextSchema,
-    listTextModelsSchema
+    listTextModelsSchema,
+    getSimpleTextSchema,
+    postSimpleTextSchema,
+    getSimpleImageUrlSchema,
+    getSimpleVideoUrlSchema,
+    getSimpleAudioUrlSchema,
+    createSpeechSchema,
+    transcribeAudioFromUrlSchema,
+    createEmbeddingsSchema,
+    listModelsSchema,
+    getAccountDataSchema,
+    createAccountKeySchema,
+    deleteAccountKeySchema,
+    openAiCompatibleGetSchema,
+    openAiCompatiblePostSchema
   ];
 }

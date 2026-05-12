@@ -15,6 +15,20 @@ import {
   listTextModels,
   listAudioVoices,
   respondText,
+  getSimpleText,
+  postSimpleText,
+  getSimpleImageUrl,
+  getSimpleVideoUrl,
+  getSimpleAudioUrl,
+  createSpeech,
+  transcribeAudioFromUrl,
+  createEmbeddings,
+  listModels,
+  getAccountData,
+  createAccountKey,
+  deleteAccountKey,
+  openAiCompatiblePost,
+  openAiCompatibleGet
 } from './index.js';
 import { getAllToolSchemas } from './schemas.js';
 import fs from 'fs';
@@ -330,6 +344,178 @@ export function createPollinationsServer() {
           content: [
             { type: 'text', text: `Error generating image from reference: ${error.message}` }
           ],
+          isError: true
+        };
+      }
+
+    } else if (name === 'getSimpleText') {
+      try {
+        const { prompt, query = {} } = args;
+        const result = await getSimpleText(prompt, query, finalAuthConfig);
+        return { content: [{ type: 'text', text: result }] };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error generating simple text: ${error.message}` }],
+          isError: true
+        };
+      }
+
+    } else if (name === 'postSimpleText') {
+      try {
+        const { prompt, model = defaultConfig.text.model } = args;
+        const result = await postSimpleText(prompt, model, finalAuthConfig);
+        return { content: [{ type: 'text', text: result }] };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error generating simple text via POST: ${error.message}` }],
+          isError: true
+        };
+      }
+
+    } else if (name === 'getSimpleImageUrl') {
+      try {
+        const { prompt, query = {} } = args;
+        const imageUrl = getSimpleImageUrl(prompt, query);
+        return { content: [{ type: 'text', text: imageUrl }] };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error generating simple image URL: ${error.message}` }],
+          isError: true
+        };
+      }
+
+    } else if (name === 'getSimpleVideoUrl') {
+      try {
+        const { prompt, query = {} } = args;
+        const videoUrl = getSimpleVideoUrl(prompt, query);
+        return { content: [{ type: 'text', text: videoUrl }] };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error generating simple video URL: ${error.message}` }],
+          isError: true
+        };
+      }
+
+    } else if (name === 'getSimpleAudioUrl') {
+      try {
+        const { text, query = {} } = args;
+        const audioUrl = getSimpleAudioUrl(text, query);
+        return { content: [{ type: 'text', text: audioUrl }] };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error generating simple audio URL: ${error.message}` }],
+          isError: true
+        };
+      }
+
+    } else if (name === 'createSpeech') {
+      try {
+        const { input, model = 'qwen-tts', voice = defaultConfig.audio.voice } = args;
+        const result = await createSpeech(input, model, voice, finalAuthConfig);
+        return {
+          content: [
+            { type: 'text', text: JSON.stringify({ ...result, metadata: { model, voice } }, null, 2) }
+          ]
+        };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error creating speech: ${error.message}` }],
+          isError: true
+        };
+      }
+
+    } else if (name === 'transcribeAudioFromUrl') {
+      try {
+        const { audioUrl, model = 'whisper' } = args;
+        const result = await transcribeAudioFromUrl(audioUrl, model, finalAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error transcribing audio: ${error.message}` }],
+          isError: true
+        };
+      }
+
+    } else if (name === 'createEmbeddings') {
+      try {
+        const { input, model = 'openai-3-small', dimensions } = args;
+        const result = await createEmbeddings(input, model, dimensions, finalAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error creating embeddings: ${error.message}` }],
+          isError: true
+        };
+      }
+
+    } else if (name === 'listModels') {
+      try {
+        const { endpoint = 'v1' } = args;
+        const result = await listModels(endpoint, finalAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error listing models: ${error.message}` }],
+          isError: true
+        };
+      }
+
+    } else if (name === 'getAccountData') {
+      try {
+        const { endpoint = 'profile', query = {} } = args;
+        const result = await getAccountData(endpoint, query, finalAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error reading account data: ${error.message}` }],
+          isError: true
+        };
+      }
+
+    } else if (name === 'createAccountKey') {
+      try {
+        const { payload } = args;
+        const result = await createAccountKey(payload, finalAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error creating account key: ${error.message}` }],
+          isError: true
+        };
+      }
+
+    } else if (name === 'deleteAccountKey') {
+      try {
+        const { id } = args;
+        const result = await deleteAccountKey(id, finalAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error deleting account key: ${error.message}` }],
+          isError: true
+        };
+      }
+
+    } else if (name === 'openAiCompatibleGet') {
+      try {
+        const { path, query = {} } = args;
+        const result = await openAiCompatibleGet(path, query, finalAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error performing GET request: ${error.message}` }],
+          isError: true
+        };
+      }
+
+    } else if (name === 'openAiCompatiblePost') {
+      try {
+        const { path, payload = {} } = args;
+        const result = await openAiCompatiblePost(path, payload, finalAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error performing POST request: ${error.message}` }],
           isError: true
         };
       }
