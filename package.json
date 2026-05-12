@@ -29,7 +29,8 @@
     "test": "node test-mcp-client.js",
     "test:image-save": "node test-image-save.js",
     "test:list-tools": "node test-list-tools.js",
-    "start": "node pollinations-mcp-server.js",
+    "start": "node server.js",
+    "start:stdio": "node pollinations-mcp-server.js",
     "generate-config": "node generate-mcp-config.js"
   },
   "keywords": [
@@ -52,6 +53,7 @@
     "tools"
   ],
   "dependencies": {
+    "@e2b/code-interpreter": "^1.2.0",
     "@modelcontextprotocol/sdk": "^1.18.2",
     "@pinkpixel/mcpollinations": "^1.2.1",
     "node-abort-controller": "^3.1.1",

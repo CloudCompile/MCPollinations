@@ -28,7 +28,13 @@ import {
   createAccountKey,
   deleteAccountKey,
   openAiCompatiblePost,
-  openAiCompatibleGet
+  openAiCompatibleGet,
+  createSandbox,
+  runCode,
+  installPackage,
+  readFile,
+  writeFile,
+  killSandbox
 } from './index.js';
 import { getAllToolSchemas } from './schemas.js';
 import fs from 'fs';
@@ -106,9 +112,20 @@ function getDefaultConfig() {
   return config;
 }
 
+function getE2bAuthConfig() {
+  const apiKey = process.env.E2B_API_KEY || null;
+  if (apiKey) {
+    log('E2B auth configuration loaded');
+  } else {
+    log('No E2B_API_KEY found; E2B tools will fail without it.');
+  }
+  return apiKey ? { apiKey } : null;
+}
+
 export function createPollinationsServer() {
   const finalAuthConfig = getAuthConfig();
   const defaultConfig = getDefaultConfig();
+  const e2bAuthConfig = getE2bAuthConfig();
 
   const server = new Server(
     {
@@ -518,6 +535,60 @@ export function createPollinationsServer() {
           content: [{ type: 'text', text: `Error performing POST request: ${error.message}` }],
           isError: true
         };
+      }
+
+    } else if (name === 'createSandbox') {
+      try {
+        const { template = 'base', timeoutMs = 300000 } = args;
+        const result = await createSandbox(template, timeoutMs, e2bAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error creating sandbox: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'runCode') {
+      try {
+        const { sandboxId, code, language = 'python' } = args;
+        const result = await runCode(sandboxId, code, language, e2bAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error running code: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'installPackage') {
+      try {
+        const { sandboxId, packages, language = 'python' } = args;
+        const result = await installPackage(sandboxId, packages, language, e2bAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error installing package: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'readFile') {
+      try {
+        const { sandboxId, filePath } = args;
+        const result = await readFile(sandboxId, filePath, e2bAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error reading file: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'writeFile') {
+      try {
+        const { sandboxId, filePath, content } = args;
+        const result = await writeFile(sandboxId, filePath, content, e2bAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error writing file: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'killSandbox') {
+      try {
+        const { sandboxId } = args;
+        const result = await killSandbox(sandboxId, e2bAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error killing sandbox: ${error.message}` }], isError: true };
       }
 
     } else {
