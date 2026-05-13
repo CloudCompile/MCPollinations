@@ -183,7 +183,9 @@ export function createPollinationsServer() {
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\n![Generated Image](${upload.url})\n\n**Shareable link:** ${upload.url}`;
+          // Try multiple rendering approaches for better Claude compatibility
+          const dataUri = `data:${result.mimeType};base64,${result.data}`;
+          responseText += `\n\n<img src="${dataUri}" style="max-width: 100%; border-radius: 8px;" alt="Generated Image" />\n\n![Generated Image](${upload.url})\n\n**Shareable link:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
@@ -318,7 +320,8 @@ export function createPollinationsServer() {
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\n![Edited Image](${upload.url})\n\n**Shareable link:** ${upload.url}`;
+          const dataUri = `data:${result.mimeType};base64,${result.data}`;
+          responseText += `\n\n<img src="${dataUri}" style="max-width: 100%; border-radius: 8px;" alt="Edited Image" />\n\n![Edited Image](${upload.url})\n\n**Shareable link:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
@@ -355,7 +358,8 @@ export function createPollinationsServer() {
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\n![Generated Image](${upload.url})\n\n**Shareable link:** ${upload.url}`;
+          const dataUri = `data:${result.mimeType};base64,${result.data}`;
+          responseText += `\n\n<img src="${dataUri}" style="max-width: 100%; border-radius: 8px;" alt="Generated Image" />\n\n![Generated Image](${upload.url})\n\n**Shareable link:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
@@ -586,6 +590,19 @@ export function createPollinationsServer() {
         }
 
         let responseText = `Generated ${result.urls.length} image(s) via VoidAI\nModel: ${result.model}\nPrompt: "${result.prompt}"\nSize: ${result.size}`;
+
+        if (content.length > 0) {
+          // Build HTML img tags for inline display
+          const htmlImages = content
+            .filter(c => c.type === 'image')
+            .map((c, i) => {
+              const dataUri = `data:${c.mimeType};base64,${c.data}`;
+              return `<img src="${dataUri}" style="max-width: 100%; border-radius: 8px; margin: 8px 0;" alt="Generated Image ${i + 1}" />`;
+            })
+            .join('\n');
+          responseText += '\n\n' + htmlImages;
+        }
+
         if (mediaUrls.length > 0) {
           responseText += '\n\n' + mediaUrls.map((url, i) => `![Generated Image ${i + 1}](${url})`).join('\n\n');
           responseText += `\n\n**Shareable link(s):**\n${mediaUrls.map((url, i) => `${i + 1}. ${url}`).join('\n')}`;
