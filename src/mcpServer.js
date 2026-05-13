@@ -183,7 +183,7 @@ export function createPollinationsServer() {
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\nShareable link: ${upload.url}`;
+          responseText += `\n\n![Generated Image](${upload.url})\n\n**Shareable link:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
@@ -318,7 +318,7 @@ export function createPollinationsServer() {
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\nShareable link: ${upload.url}`;
+          responseText += `\n\n![Edited Image](${upload.url})\n\n**Shareable link:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
@@ -355,7 +355,7 @@ export function createPollinationsServer() {
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\nShareable link: ${upload.url}`;
+          responseText += `\n\n![Generated Image](${upload.url})\n\n**Shareable link:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
@@ -587,7 +587,8 @@ export function createPollinationsServer() {
 
         let responseText = `Generated ${result.urls.length} image(s) via VoidAI\nModel: ${result.model}\nPrompt: "${result.prompt}"\nSize: ${result.size}`;
         if (mediaUrls.length > 0) {
-          responseText += `\n\nShareable link(s):\n${mediaUrls.join('\n')}`;
+          responseText += '\n\n' + mediaUrls.map((url, i) => `![Generated Image ${i + 1}](${url})`).join('\n\n');
+          responseText += `\n\n**Shareable link(s):**\n${mediaUrls.map((url, i) => `${i + 1}. ${url}`).join('\n')}`;
         } else if (result.urls.length > 0) {
           responseText += `\n\nVoidAI URL(s) (may expire):\n${result.urls.join('\n')}`;
         }
