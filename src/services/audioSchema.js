@@ -17,7 +17,7 @@ export const respondAudioSchema = {
       },
       voice: {
         type: 'string',
-        description: 'Voice to use for audio generation (default: "alloy"). Available options: "alloy", "echo", "fable", "onyx", "nova", "shimmer", "coral", "verse", "ballad", "ash", "sage", "amuch", "dan"'
+        description: 'Voice to use for audio generation (default: "alloy"). Available options: "alloy", "echo", "fable", "onyx", "nova", "shimmer", "coral", "verse", "ballad", "ash", "sage", "amuch", "dan", "rachel", "domi", "bella", "elli", "charlotte", "dorothy", "sarah", "emily", "lily", "matilda", "adam", "antoni", "arnold", "josh", "sam", "daniel", "charlie", "james", "fin", "callum", "liam", "george", "brian", "bill"'
       },
       seed: {
         type: 'number',

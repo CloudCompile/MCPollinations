@@ -1,7 +1,7 @@
 export const generateMusicSchema = {
   name: 'generateMusic',
   description:
-    'Generate music from a text prompt using the Pollinations audio endpoint with music-capable models (e.g. musicgen).',
+    'Generate music from a text prompt using the Pollinations audio endpoint with the elevenmusic model.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -15,7 +15,7 @@ export const generateMusicSchema = {
       },
       model: {
         type: 'string',
-        description: "Music model to use (default: 'musicgen')"
+        description: "Music model to use (default: 'elevenmusic')"
       }
     },
     required: ['prompt']
