@@ -111,8 +111,7 @@ export async function generateVoidImage(prompt, model = 'gpt-image-1', size = '1
     prompt,
     n: Math.max(1, Math.min(4, Number(n) || 1)),
     size,
-    quality,
-    response_format: 'url'
+    quality
   };
 
   try {
