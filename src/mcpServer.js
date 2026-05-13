@@ -179,7 +179,7 @@ export function createPollinationsServer() {
           }
         ];
 
-        let responseText = `Generated image from prompt: "${prompt}"\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
+        let responseText = `Generated image from prompt: "${prompt}"\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\n\`\`\`\ndata:${result.mimeType};base64,${result.data}\n\`\`\``;
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
@@ -314,7 +314,7 @@ export function createPollinationsServer() {
           }
         ];
 
-        let responseText = `Edited image from prompt: "${prompt}"\nInput image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
+        let responseText = `Edited image from prompt: "${prompt}"\nInput image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\n\`\`\`\ndata:${result.mimeType};base64,${result.data}\n\`\`\``;
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
@@ -351,7 +351,7 @@ export function createPollinationsServer() {
           }
         ];
 
-        let responseText = `Generated image from reference: "${prompt}"\nReference image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
+        let responseText = `Generated image from reference: "${prompt}"\nReference image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\n\`\`\`\ndata:${result.mimeType};base64,${result.data}\n\`\`\``;
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
