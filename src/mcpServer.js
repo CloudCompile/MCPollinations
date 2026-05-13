@@ -29,6 +29,7 @@ import {
   deleteAccountKey,
   openAiCompatiblePost,
   openAiCompatibleGet,
+  uploadMedia,
   respondVoid,
   generateVoidImage,
   listVoidModels
@@ -180,8 +181,11 @@ export function createPollinationsServer() {
 
         let responseText = `Generated image from prompt: "${prompt}"\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
 
-        if (result.filePath) {
-          responseText += `\n\nImage saved to: ${result.filePath}`;
+        try {
+          const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
+          responseText += `\n\nMedia URL: ${upload.url}`;
+        } catch (uploadErr) {
+          log('Media upload failed (non-fatal):', uploadErr.message);
         }
 
         content.push({ type: 'text', text: responseText });
@@ -312,8 +316,11 @@ export function createPollinationsServer() {
 
         let responseText = `Edited image from prompt: "${prompt}"\nInput image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
 
-        if (result.filePath) {
-          responseText += `\n\nImage saved to: ${result.filePath}`;
+        try {
+          const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
+          responseText += `\n\nMedia URL: ${upload.url}`;
+        } catch (uploadErr) {
+          log('Media upload failed (non-fatal):', uploadErr.message);
         }
 
         content.push({
@@ -346,8 +353,11 @@ export function createPollinationsServer() {
 
         let responseText = `Generated image from reference: "${prompt}"\nReference image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
 
-        if (result.filePath) {
-          responseText += `\n\nImage saved to: ${result.filePath}`;
+        try {
+          const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
+          responseText += `\n\nMedia URL: ${upload.url}`;
+        } catch (uploadErr) {
+          log('Media upload failed (non-fatal):', uploadErr.message);
         }
 
         content.push({
