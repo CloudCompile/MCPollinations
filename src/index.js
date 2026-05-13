@@ -14,6 +14,12 @@ import { generateVideo } from './services/videoService.js';
 import { upscaleImage, generateMusic } from './services/replicateService.js';
 import { webSearch, webFetch, extractLinks } from './services/webService.js';
 import { extractTextFromUrl, compareImages } from './services/fileService.js';
+import { analyzeImage, captionImage } from './services/visionService.js';
+import { removeBackground } from './services/backgroundRemovalService.js';
+import { swapFaces, changeFaceExpression } from './services/faceService.js';
+import { askDocument } from './services/documentService.js';
+import { interpolateImages } from './services/interpolationService.js';
+import { savePreset, loadPreset, listPresets } from './services/presetsService.js';
 import {
   getSimpleText,
   postSimpleText,
@@ -89,7 +95,29 @@ export {
 
   // File services
   extractTextFromUrl,
-  compareImages
+  compareImages,
+
+  // Vision services (image analysis)
+  analyzeImage,
+  captionImage,
+
+  // Background removal services
+  removeBackground,
+
+  // Face manipulation services
+  swapFaces,
+  changeFaceExpression,
+
+  // Document Q&A services
+  askDocument,
+
+  // Image interpolation services
+  interpolateImages,
+
+  // Preset management services
+  savePreset,
+  loadPreset,
+  listPresets
 };
 
 // If this file is run directly (e.g., with Node.js)

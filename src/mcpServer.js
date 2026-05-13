@@ -41,7 +41,17 @@ import {
   webFetch,
   extractLinks,
   extractTextFromUrl,
-  compareImages
+  compareImages,
+  analyzeImage,
+  captionImage,
+  removeBackground,
+  swapFaces,
+  changeFaceExpression,
+  askDocument,
+  interpolateImages,
+  savePreset,
+  loadPreset,
+  listPresets
 } from './index.js';
 import { getAllToolSchemas } from './schemas.js';
 import fs from 'fs';
@@ -766,6 +776,128 @@ export function createPollinationsServer() {
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
       } catch (error) {
         return { content: [{ type: 'text', text: `Error comparing images: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'analyzeImage') {
+      try {
+        const { imageUrl, prompt, model } = args;
+        const result = await analyzeImage(imageUrl, prompt, model, replicateAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error analyzing image: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'captionImage') {
+      try {
+        const { imageUrl, model } = args;
+        const result = await captionImage(imageUrl, model, replicateAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error captioning image: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'removeBackground') {
+      try {
+        const { imageUrl, model } = args;
+        const result = await removeBackground(imageUrl, model, replicateAuthConfig);
+        const content = [
+          {
+            type: 'image',
+            data: result.data,
+            mimeType: result.mimeType
+          },
+          {
+            type: 'text',
+            text: JSON.stringify({ outputUrl: result.outputUrl, model: result.model }, null, 2)
+          }
+        ];
+        return { content };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error removing background: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'swapFaces') {
+      try {
+        const { sourceImageUrl, targetImageUrl, model } = args;
+        const result = await swapFaces(sourceImageUrl, targetImageUrl, model, replicateAuthConfig);
+        const content = [
+          {
+            type: 'image',
+            data: result.data,
+            mimeType: result.mimeType
+          },
+          {
+            type: 'text',
+            text: JSON.stringify({ outputUrl: result.outputUrl, model: result.model }, null, 2)
+          }
+        ];
+        return { content };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error swapping faces: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'changeFaceExpression') {
+      try {
+        const { imageUrl, expression, model } = args;
+        const result = await changeFaceExpression(imageUrl, expression, model, replicateAuthConfig);
+        const content = [
+          {
+            type: 'image',
+            data: result.data,
+            mimeType: result.mimeType
+          },
+          {
+            type: 'text',
+            text: JSON.stringify({ outputUrl: result.outputUrl, model: result.model, expression: result.expression }, null, 2)
+          }
+        ];
+        return { content };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error changing face expression: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'askDocument') {
+      try {
+        const { documentUrl, question, model = defaultConfig.text.model } = args;
+        const result = await askDocument(documentUrl, question, model, finalAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error asking document: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'interpolateImages') {
+      try {
+        const { imageUrl1, imageUrl2, steps, model } = args;
+        const result = await interpolateImages(imageUrl1, imageUrl2, steps, model, replicateAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error interpolating images: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'savePreset') {
+      try {
+        const { name, params } = args;
+        const result = savePreset(name, params);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error saving preset: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'loadPreset') {
+      try {
+        const { name } = args;
+        const result = loadPreset(name);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error loading preset: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'listPresets') {
+      try {
+        const result = listPresets();
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error listing presets: ${error.message}` }], isError: true };
       }
 
     } else {
