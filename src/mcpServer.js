@@ -179,11 +179,11 @@ export function createPollinationsServer() {
           }
         ];
 
-        let responseText = `Generated image from prompt: "${prompt}"\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\nBase64 data (for show_widget): data:${result.mimeType};base64,${result.data.substring(0, 50)}...`;
+        let responseText = `Generated image from prompt: "${prompt}"\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\n**Shareable link:** ${upload.url}`;
+          responseText += `\n\n**Download/view:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
@@ -314,11 +314,11 @@ export function createPollinationsServer() {
           }
         ];
 
-        let responseText = `Edited image from prompt: "${prompt}"\nInput image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\nBase64 data (for show_widget): data:${result.mimeType};base64,${result.data.substring(0, 50)}...`;
+        let responseText = `Edited image from prompt: "${prompt}"\nInput image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\n**Shareable link:** ${upload.url}`;
+          responseText += `\n\n**Download/view:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
@@ -351,11 +351,11 @@ export function createPollinationsServer() {
           }
         ];
 
-        let responseText = `Generated image from reference: "${prompt}"\nReference image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\nBase64 data (for show_widget): data:${result.mimeType};base64,${result.data.substring(0, 50)}...`;
+        let responseText = `Generated image from reference: "${prompt}"\nReference image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\n**Shareable link:** ${upload.url}`;
+          responseText += `\n\n**Download/view:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
