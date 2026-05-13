@@ -29,12 +29,9 @@ import {
   deleteAccountKey,
   openAiCompatiblePost,
   openAiCompatibleGet,
-  createSandbox,
-  runCode,
-  installPackage,
-  readFile,
-  writeFile,
-  killSandbox
+  respondVoid,
+  generateVoidImage,
+  listVoidModels
 } from './index.js';
 import { getAllToolSchemas } from './schemas.js';
 import fs from 'fs';
@@ -92,6 +89,9 @@ function getDefaultConfig() {
     audio: {
       voice: process.env.DEFAULT_AUDIO_VOICE || process.env.AUDIO_VOICE || 'alloy'
     },
+    void: {
+      model: process.env.DEFAULT_VOID_MODEL || process.env.VOID_MODEL || 'gpt-4o-mini'
+    },
     resources: {
       output_dir: process.env.OUTPUT_DIR || process.env.DEFAULT_OUTPUT_DIR || './mcpollinations-output'
     }
@@ -112,12 +112,12 @@ function getDefaultConfig() {
   return config;
 }
 
-function getE2bAuthConfig() {
-  const apiKey = process.env.E2B_API_KEY || null;
+function getVoidAuthConfig() {
+  const apiKey = process.env.VOIDAI_API_KEY || process.env.VOID_API_KEY || null;
   if (apiKey) {
-    log('E2B auth configuration loaded');
+    log('VoidAI auth configuration loaded');
   } else {
-    log('No E2B_API_KEY found; E2B tools will fail without it.');
+    log('No VOIDAI_API_KEY found; VoidAI tools will fail without it.');
   }
   return apiKey ? { apiKey } : null;
 }
@@ -125,7 +125,7 @@ function getE2bAuthConfig() {
 export function createPollinationsServer() {
   const finalAuthConfig = getAuthConfig();
   const defaultConfig = getDefaultConfig();
-  const e2bAuthConfig = getE2bAuthConfig();
+  const voidAuthConfig = getVoidAuthConfig();
 
   const server = new Server(
     {
@@ -537,58 +537,30 @@ export function createPollinationsServer() {
         };
       }
 
-    } else if (name === 'createSandbox') {
+    } else if (name === 'respondVoid') {
       try {
-        const { template = 'base', timeoutMs = 300000 } = args;
-        const result = await createSandbox(template, timeoutMs, e2bAuthConfig);
-        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+        const { prompt, model = defaultConfig.void?.model ?? 'gpt-4o-mini', seed, temperature, top_p, system } = args;
+        const result = await respondVoid(prompt, model, seed, temperature ?? null, top_p ?? null, system ?? null, voidAuthConfig);
+        return { content: [{ type: 'text', text: result }] };
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error creating sandbox: ${error.message}` }], isError: true };
+        return { content: [{ type: 'text', text: `Error calling VoidAI: ${error.message}` }], isError: true };
       }
 
-    } else if (name === 'runCode') {
+    } else if (name === 'generateVoidImage') {
       try {
-        const { sandboxId, code, language = 'python' } = args;
-        const result = await runCode(sandboxId, code, language, e2bAuthConfig);
+        const { prompt, model = 'gpt-image-1', size = '1024x1024', quality = 'standard', n = 1 } = args;
+        const result = await generateVoidImage(prompt, model, size, quality, n, voidAuthConfig);
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error running code: ${error.message}` }], isError: true };
+        return { content: [{ type: 'text', text: `Error generating VoidAI image: ${error.message}` }], isError: true };
       }
 
-    } else if (name === 'installPackage') {
+    } else if (name === 'listVoidModels') {
       try {
-        const { sandboxId, packages, language = 'python' } = args;
-        const result = await installPackage(sandboxId, packages, language, e2bAuthConfig);
+        const result = await listVoidModels(voidAuthConfig);
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error installing package: ${error.message}` }], isError: true };
-      }
-
-    } else if (name === 'readFile') {
-      try {
-        const { sandboxId, filePath } = args;
-        const result = await readFile(sandboxId, filePath, e2bAuthConfig);
-        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-      } catch (error) {
-        return { content: [{ type: 'text', text: `Error reading file: ${error.message}` }], isError: true };
-      }
-
-    } else if (name === 'writeFile') {
-      try {
-        const { sandboxId, filePath, content } = args;
-        const result = await writeFile(sandboxId, filePath, content, e2bAuthConfig);
-        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-      } catch (error) {
-        return { content: [{ type: 'text', text: `Error writing file: ${error.message}` }], isError: true };
-      }
-
-    } else if (name === 'killSandbox') {
-      try {
-        const { sandboxId } = args;
-        const result = await killSandbox(sandboxId, e2bAuthConfig);
-        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-      } catch (error) {
-        return { content: [{ type: 'text', text: `Error killing sandbox: ${error.message}` }], isError: true };
+        return { content: [{ type: 'text', text: `Error listing VoidAI models: ${error.message}` }], isError: true };
       }
 
     } else {
