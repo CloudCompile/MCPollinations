@@ -179,11 +179,11 @@ export function createPollinationsServer() {
           }
         ];
 
-        let responseText = `Generated image from prompt: "${prompt}"\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
+        let responseText = `Generated image from prompt: "${prompt}"\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\nBase64 data (for show_widget): data:${result.mimeType};base64,${result.data.substring(0, 50)}...`;
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\nMedia URL: ${upload.url}`;
+          responseText += `\n\n**Shareable link:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
@@ -314,11 +314,11 @@ export function createPollinationsServer() {
           }
         ];
 
-        let responseText = `Edited image from prompt: "${prompt}"\nInput image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
+        let responseText = `Edited image from prompt: "${prompt}"\nInput image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\nBase64 data (for show_widget): data:${result.mimeType};base64,${result.data.substring(0, 50)}...`;
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\nMedia URL: ${upload.url}`;
+          responseText += `\n\n**Shareable link:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
@@ -351,11 +351,11 @@ export function createPollinationsServer() {
           }
         ];
 
-        let responseText = `Generated image from reference: "${prompt}"\nReference image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}`;
+        let responseText = `Generated image from reference: "${prompt}"\nReference image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\nBase64 data (for show_widget): data:${result.mimeType};base64,${result.data.substring(0, 50)}...`;
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\nMedia URL: ${upload.url}`;
+          responseText += `\n\n**Shareable link:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
@@ -560,7 +560,44 @@ export function createPollinationsServer() {
       try {
         const { prompt, model = 'gpt-image-1', size = '1024x1024', quality = 'standard', n = 1 } = args;
         const result = await generateVoidImage(prompt, model, size, quality, n, voidAuthConfig);
-        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+
+        const content = [];
+        const mediaUrls = [];
+
+        for (const url of result.urls) {
+          try {
+            const imgResponse = await fetch(url);
+            if (imgResponse.ok) {
+              const arrayBuffer = await imgResponse.arrayBuffer();
+              const base64 = Buffer.from(arrayBuffer).toString('base64');
+              const mimeType = imgResponse.headers.get('content-type') || 'image/png';
+              content.push({ type: 'image', data: base64, mimeType });
+
+              try {
+                const upload = await uploadMedia(base64, mimeType, 'image.png', finalAuthConfig);
+                mediaUrls.push(upload.url);
+              } catch (uploadErr) {
+                log('VoidAI media upload failed (non-fatal):', uploadErr.message);
+              }
+            }
+          } catch (fetchErr) {
+            log('Failed to fetch VoidAI image URL (non-fatal):', fetchErr.message);
+          }
+        }
+
+        let responseText = `Generated ${result.urls.length} image(s) via VoidAI\nModel: ${result.model}\nPrompt: "${result.prompt}"\nSize: ${result.size}`;
+
+        if (mediaUrls.length > 0) {
+          responseText += `\n\n**Shareable link(s):**\n${mediaUrls.map((url, i) => `${i + 1}. ${url}`).join('\n')}`;
+        } else if (result.urls.length > 0) {
+          responseText += `\n\nVoidAI URL(s) (may expire):\n${result.urls.join('\n')}`;
+        }
+        if (content.length === 0) {
+          responseText += `\n\nOriginal URL(s):\n${result.urls.join('\n')}`;
+        }
+        content.push({ type: 'text', text: responseText });
+
+        return { content };
       } catch (error) {
         return { content: [{ type: 'text', text: `Error generating VoidAI image: ${error.message}` }], isError: true };
       }
