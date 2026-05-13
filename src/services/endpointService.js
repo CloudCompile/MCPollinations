@@ -291,3 +291,45 @@ export async function openAiCompatibleGet(path, query = {}, authConfig = null) {
     responseType: 'json'
   });
 }
+
+/**
+ * Upload media (image, audio, video) to Pollinations media storage.
+ * Files are content-addressed and retained for 30 days (reset on re-upload).
+ *
+ * @param {string} base64Data - Base64-encoded file content
+ * @param {string} mimeType - MIME type (e.g. 'image/png')
+ * @param {string} [filename='image.png'] - Filename for the upload
+ * @param {Object} [authConfig] - Auth config {token, referrer}
+ * @returns {Promise<Object>} - { id, url, contentType, size, duplicate }
+ */
+export async function uploadMedia(base64Data, mimeType, filename = 'image.png', authConfig = null) {
+  const MEDIA_BASE_URL = 'https://media.pollinations.ai';
+
+  const buffer = Buffer.from(base64Data, 'base64');
+
+  const headers = {
+    'Content-Type': mimeType,
+    'Content-Disposition': `attachment; filename="${filename}"`
+  };
+
+  if (authConfig?.token) {
+    headers['Authorization'] = `Bearer ${authConfig.token}`;
+  }
+
+  if (authConfig?.referrer) {
+    headers['Referer'] = authConfig.referrer;
+  }
+
+  const response = await fetch(`${MEDIA_BASE_URL}/upload`, {
+    method: 'POST',
+    headers,
+    body: buffer
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Media upload failed (${response.status}): ${errorText || response.statusText}`);
+  }
+
+  return await response.json();
+}

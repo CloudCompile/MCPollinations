@@ -23,7 +23,8 @@ import {
   createAccountKey,
   deleteAccountKey,
   openAiCompatiblePost,
-  openAiCompatibleGet
+  openAiCompatibleGet,
+  uploadMedia
 } from './services/endpointService.js';
 
 
@@ -59,6 +60,7 @@ export {
   deleteAccountKey,
   openAiCompatiblePost,
   openAiCompatibleGet,
+  uploadMedia,
 
   // VoidAI services
   respondVoid,
