@@ -93,7 +93,7 @@ function getDefaultConfig() {
       model: process.env.DEFAULT_VOID_MODEL || process.env.VOID_MODEL || 'gpt-4o-mini'
     },
     resources: {
-      output_dir: process.env.OUTPUT_DIR || process.env.DEFAULT_OUTPUT_DIR || './mcpollinations-output'
+      output_dir: process.env.OUTPUT_DIR || process.env.DEFAULT_OUTPUT_DIR || os.tmpdir()
     }
   };
 
