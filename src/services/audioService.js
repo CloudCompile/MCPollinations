@@ -122,7 +122,31 @@ export async function listAudioVoices() {
     "ash",
     "sage",
     "amuch",
-    "dan"
+    "dan",
+    "rachel",
+    "domi",
+    "bella",
+    "elli",
+    "charlotte",
+    "dorothy",
+    "sarah",
+    "emily",
+    "lily",
+    "matilda",
+    "adam",
+    "antoni",
+    "arnold",
+    "josh",
+    "sam",
+    "daniel",
+    "charlie",
+    "james",
+    "fin",
+    "callum",
+    "liam",
+    "george",
+    "brian",
+    "bill"
   ];
 
   return { voices };

@@ -32,7 +32,20 @@ import {
   uploadMedia,
   respondVoid,
   generateVoidImage,
-  listVoidModels
+  listVoidModels,
+  generateImageBatch,
+  generateVideo,
+  upscaleImage,
+  generateMusic,
+  webSearch,
+  webFetch,
+  extractLinks,
+  extractTextFromUrl,
+  compareImages,
+  askDocument,
+  savePreset,
+  loadPreset,
+  listPresets
 } from './index.js';
 import { getAllToolSchemas } from './schemas.js';
 import fs from 'fs';
@@ -113,6 +126,26 @@ function getDefaultConfig() {
   return config;
 }
 
+function getCloudinaryAuthConfig() {
+  const url = process.env.CLOUDINARY_URL || '';
+  if (url) {
+    const match = url.match(/cloudinary:\/\/([^:]+):([^@]+)@(.+)/);
+    if (match) {
+      log('Cloudinary auth loaded from CLOUDINARY_URL');
+      return { apiKey: match[1], apiSecret: match[2], cloudName: match[3] };
+    }
+  }
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || '';
+  const apiKey = process.env.CLOUDINARY_API_KEY || '';
+  const apiSecret = process.env.CLOUDINARY_API_SECRET || '';
+  if (cloudName && apiKey && apiSecret) {
+    log('Cloudinary auth loaded from individual env vars');
+  } else {
+    log('No Cloudinary credentials found; upscaleImage will fail without them.');
+  }
+  return { cloudName, apiKey, apiSecret };
+}
+
 function getVoidAuthConfig() {
   const apiKey = process.env.VOIDAI_API_KEY || process.env.VOID_API_KEY || null;
   if (apiKey) {
@@ -127,6 +160,7 @@ export function createPollinationsServer() {
   const finalAuthConfig = getAuthConfig();
   const defaultConfig = getDefaultConfig();
   const voidAuthConfig = getVoidAuthConfig();
+  const cloudinaryAuthConfig = getCloudinaryAuthConfig();
 
   const server = new Server(
     {
@@ -179,11 +213,11 @@ export function createPollinationsServer() {
           }
         ];
 
-        let responseText = `Generated image from prompt: "${prompt}"\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\nBase64 data (for show_widget): data:${result.mimeType};base64,${result.data.substring(0, 50)}...`;
+        let responseText = `Generated image from prompt: "${prompt}"\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\n\`\`\`\ndata:${result.mimeType};base64,${result.data}\n\`\`\``;
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\n**Shareable link:** ${upload.url}`;
+          responseText += `\n\n**Download/view:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
@@ -314,11 +348,11 @@ export function createPollinationsServer() {
           }
         ];
 
-        let responseText = `Edited image from prompt: "${prompt}"\nInput image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\nBase64 data (for show_widget): data:${result.mimeType};base64,${result.data.substring(0, 50)}...`;
+        let responseText = `Edited image from prompt: "${prompt}"\nInput image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\n\`\`\`\ndata:${result.mimeType};base64,${result.data}\n\`\`\``;
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\n**Shareable link:** ${upload.url}`;
+          responseText += `\n\n**Download/view:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
@@ -351,11 +385,11 @@ export function createPollinationsServer() {
           }
         ];
 
-        let responseText = `Generated image from reference: "${prompt}"\nReference image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\nBase64 data (for show_widget): data:${result.mimeType};base64,${result.data.substring(0, 50)}...`;
+        let responseText = `Generated image from reference: "${prompt}"\nReference image: ${imageUrl}\n\nImage metadata: ${JSON.stringify(result.metadata, null, 2)}\n\n\`\`\`\ndata:${result.mimeType};base64,${result.data}\n\`\`\``;
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, `image.${format}`, finalAuthConfig);
-          responseText += `\n\n**Shareable link:** ${upload.url}`;
+          responseText += `\n\n**Download/view:** ${upload.url}`;
         } catch (uploadErr) {
           log('Media upload failed (non-fatal):', uploadErr.message);
         }
@@ -608,6 +642,179 @@ export function createPollinationsServer() {
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
       } catch (error) {
         return { content: [{ type: 'text', text: `Error listing VoidAI models: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'generateImageBatch') {
+      try {
+        const { prompt, count = 4, seeds, width = defaultConfig.image.width, height = defaultConfig.image.height, model = defaultConfig.image.model, enhance = defaultConfig.image.enhance, safe = defaultConfig.image.safe } = args;
+        const result = await generateImageBatch(prompt, count, seeds ?? null, width, height, model, enhance, safe, finalAuthConfig);
+
+        const content = [];
+        const mediaUrls = [];
+
+        for (const item of result.results) {
+          if (item.status === 'fulfilled') {
+            content.push({ type: 'image', data: item.value.data, mimeType: item.value.mimeType });
+            try {
+              const upload = await uploadMedia(item.value.data, item.value.mimeType, 'image.png', finalAuthConfig);
+              mediaUrls.push(upload.url);
+            } catch (uploadErr) {
+              log('Batch media upload failed (non-fatal):', uploadErr.message);
+            }
+          }
+        }
+
+        const succeeded = result.results.filter((r) => r.status === 'fulfilled').length;
+        const failed = result.results.filter((r) => r.status === 'rejected').length;
+        let summaryText = `Generated ${succeeded}/${result.count} images for prompt: "${prompt}"\nModel: ${result.model}`;
+        if (failed > 0) summaryText += `\n${failed} image(s) failed.`;
+        if (mediaUrls.length > 0) {
+          summaryText += `\n\n**Shareable links:**\n${mediaUrls.map((url, i) => `${i + 1}. ${url}`).join('\n')}`;
+        }
+        content.push({ type: 'text', text: summaryText });
+
+        return { content };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error generating image batch: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'generateVideo') {
+      try {
+        const { prompt, model = 'wan', width, height, duration, seed, enhance, safe } = args;
+        const result = await generateVideo(prompt, model, width, height, duration, seed, enhance, safe, finalAuthConfig);
+
+        let responseText = `Generated video\nPrompt: "${prompt}"\nModel: ${result.model}`;
+
+        try {
+          const upload = await uploadMedia(result.data, result.mimeType, 'video.mp4', finalAuthConfig);
+          responseText += `\n\n**Download:** ${upload.url}`;
+        } catch (uploadErr) {
+          log('Video media upload failed (non-fatal):', uploadErr.message);
+        }
+
+        return { content: [{ type: 'text', text: responseText }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error generating video: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'upscaleImage') {
+      try {
+        const { imageUrl, scale = '2x' } = args;
+        const result = await upscaleImage(imageUrl, scale, cloudinaryAuthConfig);
+
+        const content = [{ type: 'image', data: result.data, mimeType: result.mimeType }];
+        let responseText = `Upscaled image (${result.scale})\nInput: ${imageUrl}\nCloudinary URL: ${result.url}`;
+
+        try {
+          const upload = await uploadMedia(result.data, result.mimeType, 'upscaled.png', finalAuthConfig);
+          responseText += `\n\n**Download/view:** ${upload.url}`;
+        } catch (uploadErr) {
+          log('Upscale media upload failed (non-fatal):', uploadErr.message);
+        }
+
+        content.push({ type: 'text', text: responseText });
+        return { content };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error upscaling image: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'generateMusic') {
+      try {
+        const { prompt, duration = 30, model = 'musicgen' } = args;
+        const result = await generateMusic(prompt, duration, model, finalAuthConfig);
+
+        let responseText = `Generated music\nPrompt: "${prompt}"\nModel: ${result.model}\nDuration: ~${result.duration}s`;
+
+        try {
+          const upload = await uploadMedia(result.data, result.mimeType, 'music.mp3', finalAuthConfig);
+          responseText += `\n\n**Download:** ${upload.url}`;
+        } catch (uploadErr) {
+          log('Music media upload failed (non-fatal):', uploadErr.message);
+        }
+
+        return { content: [{ type: 'text', text: responseText }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error generating music: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'webSearch') {
+      try {
+        const { query, maxResults = 10 } = args;
+        const result = await webSearch(query, maxResults);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error performing web search: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'webFetch') {
+      try {
+        const { url } = args;
+        const result = await webFetch(url);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error fetching URL: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'extractLinks') {
+      try {
+        const { url } = args;
+        const result = await extractLinks(url);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error extracting links: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'extractTextFromUrl') {
+      try {
+        const { url } = args;
+        const result = await extractTextFromUrl(url);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error extracting text from URL: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'compareImages') {
+      try {
+        const { imageUrl1, imageUrl2 } = args;
+        const result = await compareImages(imageUrl1, imageUrl2);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error comparing images: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'askDocument') {
+      try {
+        const { documentUrl, question, model = defaultConfig.text.model } = args;
+        const result = await askDocument(documentUrl, question, model, finalAuthConfig);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error asking document: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'savePreset') {
+      try {
+        const { name, params } = args;
+        const result = savePreset(name, params);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error saving preset: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'loadPreset') {
+      try {
+        const { name } = args;
+        const result = loadPreset(name);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error loading preset: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'listPresets') {
+      try {
+        const result = listPresets();
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error listing presets: ${error.message}` }], isError: true };
       }
 
     } else {

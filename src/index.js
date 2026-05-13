@@ -9,6 +9,14 @@ import { generateImageUrl, generateImage, editImage, generateImageFromReference,
 import { respondVoid, generateVoidImage, listVoidModels } from './services/voidService.js';
 import { respondAudio, listAudioVoices } from './services/audioService.js';
 import { respondText, listTextModels } from './services/textService.js';
+import { generateImageBatch } from './services/batchService.js';
+import { generateVideo } from './services/videoService.js';
+import { upscaleImage } from './services/cloudinaryService.js';
+import { generateMusic } from './services/musicService.js';
+import { webSearch, webFetch, extractLinks } from './services/webService.js';
+import { extractTextFromUrl, compareImages } from './services/fileService.js';
+import { askDocument } from './services/documentService.js';
+import { savePreset, loadPreset, listPresets } from './services/presetsService.js';
 import {
   getSimpleText,
   postSimpleText,
@@ -65,7 +73,36 @@ export {
   // VoidAI services
   respondVoid,
   generateVoidImage,
-  listVoidModels
+  listVoidModels,
+
+  // Batch image services
+  generateImageBatch,
+
+  // Video services
+  generateVideo,
+
+  // Cloudinary services
+  upscaleImage,
+
+  // Music services
+  generateMusic,
+
+  // Web services
+  webSearch,
+  webFetch,
+  extractLinks,
+
+  // File services
+  extractTextFromUrl,
+  compareImages,
+
+  // Document Q&A services
+  askDocument,
+
+  // Preset management services
+  savePreset,
+  loadPreset,
+  listPresets
 };
 
 // If this file is run directly (e.g., with Node.js)
