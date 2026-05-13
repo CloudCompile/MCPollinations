@@ -42,13 +42,7 @@ import {
   extractLinks,
   extractTextFromUrl,
   compareImages,
-  analyzeImage,
-  captionImage,
-  removeBackground,
-  swapFaces,
-  changeFaceExpression,
   askDocument,
-  interpolateImages,
   savePreset,
   loadPreset,
   listPresets
@@ -132,14 +126,24 @@ function getDefaultConfig() {
   return config;
 }
 
-function getReplicateAuthConfig() {
-  const token = process.env.REPLICATE_API_TOKEN || null;
-  if (token) {
-    log('Replicate auth configuration loaded');
-  } else {
-    log('No REPLICATE_API_TOKEN found; Replicate tools will fail without it.');
+function getCloudinaryAuthConfig() {
+  const url = process.env.CLOUDINARY_URL || '';
+  if (url) {
+    const match = url.match(/cloudinary:\/\/([^:]+):([^@]+)@(.+)/);
+    if (match) {
+      log('Cloudinary auth loaded from CLOUDINARY_URL');
+      return { apiKey: match[1], apiSecret: match[2], cloudName: match[3] };
+    }
   }
-  return token ? { token } : null;
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || '';
+  const apiKey = process.env.CLOUDINARY_API_KEY || '';
+  const apiSecret = process.env.CLOUDINARY_API_SECRET || '';
+  if (cloudName && apiKey && apiSecret) {
+    log('Cloudinary auth loaded from individual env vars');
+  } else {
+    log('No Cloudinary credentials found; upscaleImage will fail without them.');
+  }
+  return { cloudName, apiKey, apiSecret };
 }
 
 function getVoidAuthConfig() {
@@ -156,7 +160,7 @@ export function createPollinationsServer() {
   const finalAuthConfig = getAuthConfig();
   const defaultConfig = getDefaultConfig();
   const voidAuthConfig = getVoidAuthConfig();
-  const replicateAuthConfig = getReplicateAuthConfig();
+  const cloudinaryAuthConfig = getCloudinaryAuthConfig();
 
   const server = new Server(
     {
@@ -695,11 +699,11 @@ export function createPollinationsServer() {
 
     } else if (name === 'upscaleImage') {
       try {
-        const { imageUrl, scale = 4, model = 'nightmareai/real-esrgan' } = args;
-        const result = await upscaleImage(imageUrl, scale, model, replicateAuthConfig);
+        const { imageUrl, scale = '2x' } = args;
+        const result = await upscaleImage(imageUrl, scale, cloudinaryAuthConfig);
 
         const content = [{ type: 'image', data: result.data, mimeType: result.mimeType }];
-        let responseText = `Upscaled image (${result.scale}x)\nInput: ${imageUrl}\nModel: ${result.model}`;
+        let responseText = `Upscaled image (${result.scale})\nInput: ${imageUrl}\nCloudinary URL: ${result.url}`;
 
         try {
           const upload = await uploadMedia(result.data, result.mimeType, 'upscaled.png', finalAuthConfig);
@@ -716,13 +720,13 @@ export function createPollinationsServer() {
 
     } else if (name === 'generateMusic') {
       try {
-        const { prompt, duration = 8, modelVersion = 'stereo-large' } = args;
-        const result = await generateMusic(prompt, duration, modelVersion, replicateAuthConfig);
+        const { prompt, duration = 30, model = 'musicgen' } = args;
+        const result = await generateMusic(prompt, duration, model, finalAuthConfig);
 
-        let responseText = `Generated music\nPrompt: "${prompt}"\nDuration: ${result.duration}s\nModel version: ${result.modelVersion}`;
+        let responseText = `Generated music\nPrompt: "${prompt}"\nModel: ${result.model}\nDuration: ~${result.duration}s`;
 
         try {
-          const upload = await uploadMedia(result.data, result.mimeType, 'music.wav', finalAuthConfig);
+          const upload = await uploadMedia(result.data, result.mimeType, 'music.mp3', finalAuthConfig);
           responseText += `\n\n**Download:** ${upload.url}`;
         } catch (uploadErr) {
           log('Music media upload failed (non-fatal):', uploadErr.message);
@@ -778,84 +782,6 @@ export function createPollinationsServer() {
         return { content: [{ type: 'text', text: `Error comparing images: ${error.message}` }], isError: true };
       }
 
-    } else if (name === 'analyzeImage') {
-      try {
-        const { imageUrl, prompt, model } = args;
-        const result = await analyzeImage(imageUrl, prompt, model, replicateAuthConfig);
-        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-      } catch (error) {
-        return { content: [{ type: 'text', text: `Error analyzing image: ${error.message}` }], isError: true };
-      }
-
-    } else if (name === 'captionImage') {
-      try {
-        const { imageUrl, model } = args;
-        const result = await captionImage(imageUrl, model, replicateAuthConfig);
-        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-      } catch (error) {
-        return { content: [{ type: 'text', text: `Error captioning image: ${error.message}` }], isError: true };
-      }
-
-    } else if (name === 'removeBackground') {
-      try {
-        const { imageUrl, model } = args;
-        const result = await removeBackground(imageUrl, model, replicateAuthConfig);
-        const content = [
-          {
-            type: 'image',
-            data: result.data,
-            mimeType: result.mimeType
-          },
-          {
-            type: 'text',
-            text: JSON.stringify({ outputUrl: result.outputUrl, model: result.model }, null, 2)
-          }
-        ];
-        return { content };
-      } catch (error) {
-        return { content: [{ type: 'text', text: `Error removing background: ${error.message}` }], isError: true };
-      }
-
-    } else if (name === 'swapFaces') {
-      try {
-        const { sourceImageUrl, targetImageUrl, model } = args;
-        const result = await swapFaces(sourceImageUrl, targetImageUrl, model, replicateAuthConfig);
-        const content = [
-          {
-            type: 'image',
-            data: result.data,
-            mimeType: result.mimeType
-          },
-          {
-            type: 'text',
-            text: JSON.stringify({ outputUrl: result.outputUrl, model: result.model }, null, 2)
-          }
-        ];
-        return { content };
-      } catch (error) {
-        return { content: [{ type: 'text', text: `Error swapping faces: ${error.message}` }], isError: true };
-      }
-
-    } else if (name === 'changeFaceExpression') {
-      try {
-        const { imageUrl, expression, model } = args;
-        const result = await changeFaceExpression(imageUrl, expression, model, replicateAuthConfig);
-        const content = [
-          {
-            type: 'image',
-            data: result.data,
-            mimeType: result.mimeType
-          },
-          {
-            type: 'text',
-            text: JSON.stringify({ outputUrl: result.outputUrl, model: result.model, expression: result.expression }, null, 2)
-          }
-        ];
-        return { content };
-      } catch (error) {
-        return { content: [{ type: 'text', text: `Error changing face expression: ${error.message}` }], isError: true };
-      }
-
     } else if (name === 'askDocument') {
       try {
         const { documentUrl, question, model = defaultConfig.text.model } = args;
@@ -863,15 +789,6 @@ export function createPollinationsServer() {
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
       } catch (error) {
         return { content: [{ type: 'text', text: `Error asking document: ${error.message}` }], isError: true };
-      }
-
-    } else if (name === 'interpolateImages') {
-      try {
-        const { imageUrl1, imageUrl2, steps, model } = args;
-        const result = await interpolateImages(imageUrl1, imageUrl2, steps, model, replicateAuthConfig);
-        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-      } catch (error) {
-        return { content: [{ type: 'text', text: `Error interpolating images: ${error.message}` }], isError: true };
       }
 
     } else if (name === 'savePreset') {
