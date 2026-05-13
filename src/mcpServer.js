@@ -32,7 +32,16 @@ import {
   uploadMedia,
   respondVoid,
   generateVoidImage,
-  listVoidModels
+  listVoidModels,
+  generateImageBatch,
+  generateVideo,
+  upscaleImage,
+  generateMusic,
+  webSearch,
+  webFetch,
+  extractLinks,
+  extractTextFromUrl,
+  compareImages
 } from './index.js';
 import { getAllToolSchemas } from './schemas.js';
 import fs from 'fs';
@@ -113,6 +122,16 @@ function getDefaultConfig() {
   return config;
 }
 
+function getReplicateAuthConfig() {
+  const token = process.env.REPLICATE_API_TOKEN || null;
+  if (token) {
+    log('Replicate auth configuration loaded');
+  } else {
+    log('No REPLICATE_API_TOKEN found; Replicate tools will fail without it.');
+  }
+  return token ? { token } : null;
+}
+
 function getVoidAuthConfig() {
   const apiKey = process.env.VOIDAI_API_KEY || process.env.VOID_API_KEY || null;
   if (apiKey) {
@@ -127,6 +146,7 @@ export function createPollinationsServer() {
   const finalAuthConfig = getAuthConfig();
   const defaultConfig = getDefaultConfig();
   const voidAuthConfig = getVoidAuthConfig();
+  const replicateAuthConfig = getReplicateAuthConfig();
 
   const server = new Server(
     {
@@ -608,6 +628,144 @@ export function createPollinationsServer() {
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
       } catch (error) {
         return { content: [{ type: 'text', text: `Error listing VoidAI models: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'generateImageBatch') {
+      try {
+        const { prompt, count = 4, seeds, width = defaultConfig.image.width, height = defaultConfig.image.height, model = defaultConfig.image.model, enhance = defaultConfig.image.enhance, safe = defaultConfig.image.safe } = args;
+        const result = await generateImageBatch(prompt, count, seeds ?? null, width, height, model, enhance, safe, finalAuthConfig);
+
+        const content = [];
+        const mediaUrls = [];
+
+        for (const item of result.results) {
+          if (item.status === 'fulfilled') {
+            content.push({ type: 'image', data: item.value.data, mimeType: item.value.mimeType });
+            try {
+              const upload = await uploadMedia(item.value.data, item.value.mimeType, 'image.png', finalAuthConfig);
+              mediaUrls.push(upload.url);
+            } catch (uploadErr) {
+              log('Batch media upload failed (non-fatal):', uploadErr.message);
+            }
+          }
+        }
+
+        const succeeded = result.results.filter((r) => r.status === 'fulfilled').length;
+        const failed = result.results.filter((r) => r.status === 'rejected').length;
+        let summaryText = `Generated ${succeeded}/${result.count} images for prompt: "${prompt}"\nModel: ${result.model}`;
+        if (failed > 0) summaryText += `\n${failed} image(s) failed.`;
+        if (mediaUrls.length > 0) {
+          summaryText += `\n\n**Shareable links:**\n${mediaUrls.map((url, i) => `${i + 1}. ${url}`).join('\n')}`;
+        }
+        content.push({ type: 'text', text: summaryText });
+
+        return { content };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error generating image batch: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'generateVideo') {
+      try {
+        const { prompt, model = 'wan', width, height, duration, seed, enhance, safe } = args;
+        const result = await generateVideo(prompt, model, width, height, duration, seed, enhance, safe, finalAuthConfig);
+
+        let responseText = `Generated video\nPrompt: "${prompt}"\nModel: ${result.model}`;
+
+        try {
+          const upload = await uploadMedia(result.data, result.mimeType, 'video.mp4', finalAuthConfig);
+          responseText += `\n\n**Download:** ${upload.url}`;
+        } catch (uploadErr) {
+          log('Video media upload failed (non-fatal):', uploadErr.message);
+        }
+
+        return { content: [{ type: 'text', text: responseText }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error generating video: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'upscaleImage') {
+      try {
+        const { imageUrl, scale = 4, model = 'nightmareai/real-esrgan' } = args;
+        const result = await upscaleImage(imageUrl, scale, model, replicateAuthConfig);
+
+        const content = [{ type: 'image', data: result.data, mimeType: result.mimeType }];
+        let responseText = `Upscaled image (${result.scale}x)\nInput: ${imageUrl}\nModel: ${result.model}`;
+
+        try {
+          const upload = await uploadMedia(result.data, result.mimeType, 'upscaled.png', finalAuthConfig);
+          responseText += `\n\n**Download/view:** ${upload.url}`;
+        } catch (uploadErr) {
+          log('Upscale media upload failed (non-fatal):', uploadErr.message);
+        }
+
+        content.push({ type: 'text', text: responseText });
+        return { content };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error upscaling image: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'generateMusic') {
+      try {
+        const { prompt, duration = 8, modelVersion = 'stereo-large' } = args;
+        const result = await generateMusic(prompt, duration, modelVersion, replicateAuthConfig);
+
+        let responseText = `Generated music\nPrompt: "${prompt}"\nDuration: ${result.duration}s\nModel version: ${result.modelVersion}`;
+
+        try {
+          const upload = await uploadMedia(result.data, result.mimeType, 'music.wav', finalAuthConfig);
+          responseText += `\n\n**Download:** ${upload.url}`;
+        } catch (uploadErr) {
+          log('Music media upload failed (non-fatal):', uploadErr.message);
+        }
+
+        return { content: [{ type: 'text', text: responseText }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error generating music: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'webSearch') {
+      try {
+        const { query, maxResults = 10 } = args;
+        const result = await webSearch(query, maxResults);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error performing web search: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'webFetch') {
+      try {
+        const { url } = args;
+        const result = await webFetch(url);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error fetching URL: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'extractLinks') {
+      try {
+        const { url } = args;
+        const result = await extractLinks(url);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error extracting links: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'extractTextFromUrl') {
+      try {
+        const { url } = args;
+        const result = await extractTextFromUrl(url);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error extracting text from URL: ${error.message}` }], isError: true };
+      }
+
+    } else if (name === 'compareImages') {
+      try {
+        const { imageUrl1, imageUrl2 } = args;
+        const result = await compareImages(imageUrl1, imageUrl2);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error comparing images: ${error.message}` }], isError: true };
       }
 
     } else {

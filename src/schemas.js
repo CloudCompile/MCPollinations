@@ -6,6 +6,11 @@ import { generateImageUrlSchema, generateImageSchema, editImageSchema, generateI
 import { respondVoidSchema, generateVoidImageSchema, listVoidModelsSchema } from './services/voidSchema.js';
 import { respondAudioSchema, listAudioVoicesSchema } from './services/audioSchema.js';
 import { respondTextSchema, listTextModelsSchema } from './services/textSchema.js';
+import { generateImageBatchSchema } from './services/batchSchema.js';
+import { generateVideoSchema } from './services/videoSchema.js';
+import { upscaleImageSchema, generateMusicSchema } from './services/replicateSchema.js';
+import { webSearchSchema, webFetchSchema, extractLinksSchema } from './services/webSchema.js';
+import { extractTextFromUrlSchema, compareImagesSchema } from './services/fileSchema.js';
 import {
   getSimpleTextSchema,
   postSimpleTextSchema,
@@ -60,7 +65,26 @@ export {
   // VoidAI schemas
   respondVoidSchema,
   generateVoidImageSchema,
-  listVoidModelsSchema
+  listVoidModelsSchema,
+
+  // Batch image schemas
+  generateImageBatchSchema,
+
+  // Video schemas
+  generateVideoSchema,
+
+  // Replicate schemas
+  upscaleImageSchema,
+  generateMusicSchema,
+
+  // Web schemas
+  webSearchSchema,
+  webFetchSchema,
+  extractLinksSchema,
+
+  // File schemas
+  extractTextFromUrlSchema,
+  compareImagesSchema
 };
 
 /**
@@ -94,6 +118,15 @@ export function getAllToolSchemas() {
     openAiCompatiblePostSchema,
     respondVoidSchema,
     generateVoidImageSchema,
-    listVoidModelsSchema
+    listVoidModelsSchema,
+    generateImageBatchSchema,
+    generateVideoSchema,
+    upscaleImageSchema,
+    generateMusicSchema,
+    webSearchSchema,
+    webFetchSchema,
+    extractLinksSchema,
+    extractTextFromUrlSchema,
+    compareImagesSchema
   ];
 }
